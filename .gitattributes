@@ -1,0 +1,14 @@
+# リポジトリ内では改行をLFに統一する。
+# Windows / Mac / 複数worktree で作業しても、改行コードの差だけで
+# 「全行変更」と表示される偽の競合が起きなくなる。
+* text=auto eol=lf
+
+# バイナリ扱い（改行変換をしない）
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.woff  binary
+*.woff2 binary
