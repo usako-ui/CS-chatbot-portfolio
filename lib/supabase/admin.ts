@@ -19,8 +19,9 @@ import 'server-only';
 
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { getServerEnv } from '@/lib/env';
+import type { Database } from '@/types/database';
 
-let cached: ReturnType<typeof createSupabaseClient> | null = null;
+let cached: ReturnType<typeof createSupabaseClient<Database>> | null = null;
 
 /**
  * service_role クライアントを取得する（プロセス内で使い回す）。
@@ -35,7 +36,9 @@ export function getSupabaseAdmin() {
 
   const { supabaseUrl, supabaseServiceRoleKey } = getServerEnv();
 
-  cached = createSupabaseClient(supabaseUrl, supabaseServiceRoleKey, {
+  // <Database> を渡すことで .from('faqs').select() に列の型が付き、
+  // 列名のタイプミスや型の取り違えをビルド時に検出できる（types/database.ts は自動生成）。
+  cached = createSupabaseClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
