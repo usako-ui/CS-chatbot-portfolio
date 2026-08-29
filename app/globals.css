@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * BOTANICA ブランドトークン（Q-010 確定）
+ *
+ * 色の定義はこの1か所にまとめる。
+ * Tailwind 側（tailwind.config.ts）はこの変数を参照するだけなので、
+ * ブランドカラーを差し替えるときはここの値を変えれば全画面に反映される。
+ */
+:root {
+  --color-primary: #2d6a4f;
+  --color-secondary: #40916c;
+  --color-accent: #b7e4c7;
+  --color-text: #1b4332;
+  --color-sand: #faf7f2;
+  --color-sidebar: #3d7a65;
+}
+
+body {
+  background-color: var(--color-sand);
+  color: var(--color-text);
+}
