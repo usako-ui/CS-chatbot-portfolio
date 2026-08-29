@@ -14,11 +14,14 @@ import { publicEnv } from '@/lib/env';
 /**
  * Cookie 上の JWT を読めるサーバークライアントを作る。
  *
+ * Next.js 15 から cookies() が非同期になったため、この関数も async。
+ * 呼び出し側は必ず await すること。
+ *
  * @param writable Server Action / Route Handler では true（トークン更新をCookieへ書き戻す）。
  *                 Server Component では false（Cookie書き込みが禁止されているため）。
  */
-export function createClient(writable = false) {
-  const cookieStore = cookies();
+export async function createClient(writable = false) {
+  const cookieStore = await cookies();
 
   return createServerClient(publicEnv.supabaseUrl, publicEnv.supabaseAnonKey, {
     cookies: {
@@ -58,7 +61,7 @@ export function createClient(writable = false) {
  * @throws  セッションが無い・無効な場合
  */
 export async function requireCustomerId(): Promise<string> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
     error,
@@ -81,7 +84,7 @@ export async function requireCustomerId(): Promise<string> {
  * @throws  未ログイン、または匿名顧客だった場合
  */
 export async function requireOperatorId(): Promise<string> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
     error,
