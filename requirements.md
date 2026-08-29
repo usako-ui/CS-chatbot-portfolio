@@ -79,7 +79,7 @@
 | FR-CUS-003 | AI回答表示 | AIの回答が吹き出し形式で時系列表示される |
 | FR-CUS-004 | AI処理中表示 | AI応答待ち中にローディング（タイピングインジケーター等）を表示する |
 | FR-CUS-005 | エスカレーション通知 | オペレーター引き継ぎ時に「担当者に引き継ぎました」等のシステムメッセージを表示する |
-| FR-CUS-006 | 営業時間外表示 | 時間外は「現在AIが一次対応中です。翌営業日（10:00以降）に担当者が対応します」を表示する |
+| FR-CUS-006 | 営業時間外表示 | 時間外は「現在は営業時間外です。翌営業日（10:00以降）に担当者が対応します。」を表示する |
 | FR-CUS-007 | 会話履歴表示 | 同セッション内の過去メッセージを表示する |
 | FR-CUS-008 | 送信失敗表示 | 送信エラー時に「送信に失敗しました。もう一度お試しください」を表示する |
 | FR-CUS-009 | 送信者の視覚的区別 | 顧客・AI・オペレーターのメッセージを色・配置で区別する |
@@ -178,7 +178,7 @@ closed                → 会話終了
 | FR-TIME-001 | 営業時間 | DBの営業設定（初期値10:00〜18:00 JST）をサーバー側で参照して判定する |
 | FR-TIME-002 | 時間内ESC | オペレーターへ即時通知。conversationステータスを `waiting_operator` に変更 |
 | FR-TIME-003 | 時間外・休日ESC | 即時オペレーター通知はしない。ステータスを `waiting_operator` で保持。翌営業日に対応 |
-| FR-TIME-004 | 時間外・休日の顧客表示 | 「翌営業日（10:00以降）に担当者が対応します」と表示する |
+| FR-TIME-004 | 時間外・休日の顧客表示 | 「現在は営業時間外です。翌営業日（10:00以降）に担当者が対応します。」と表示する |
 | FR-TIME-005 | 休日・定休日の扱い | 管理画面の営業設定で登録した休日・定休曜日は営業時間外と同一の動作をする |
 | FR-TIME-006 | 営業設定のDB管理 | 営業時間（開始・終了）・定休曜日・休日一覧を `business_settings` テーブルで管理する |
 | FR-TIME-007 | 当日の対応可否フラグ | オペレーターが当日の対応可否を手動で切り替えられる（臨時休業・早退等に対応） |
@@ -745,28 +745,64 @@ export async function sendMessage(conversationId: string, text: string) {
   3. 現在の日付が holiday_dates に含まれる
   4. is_open_today が FALSE（オペレーターの手動フラグ）
 
-実装イメージ（lib/businessHours.ts）：
-  export async function isBusinessHours(): Promise<boolean> {
-    const settings = await getBusinessSettings(); // DBから取得
-    const now = new Date();
-    const jst = new Date(now.toLocaleString('ja-JP', { timeZone: settings.timezone }));
+実装イメージ（lib/businessHoursRules.ts）：
+  // 【重要】タイムゾーンの変換に Date の再パースと toISOString() を使ってはいけない。
+  //   NG例： const jst = new Date(now.toLocaleString('ja-JP', { timeZone }));
+  //          const dateStr = jst.toISOString().split('T')[0];
+  //   toISOString() はUTCに戻すため、JSTの朝の時刻が「前日の日付」になる。
+  //   その結果、登録した休日を営業日と誤判定する（AC-017 が落ちる）。
+  //   本番の Vercel はUTCで動くため、この差は必ず表面化する。
+  //   Intl.DateTimeFormat.formatToParts なら指定タイムゾーンの値を直接取り出せる。
 
-    if (!settings.is_open_today) return false;              // 手動フラグ
-    const weekday = jst.getDay();
-    if (settings.closed_weekdays.includes(weekday)) return false; // 定休曜日
-    const dateStr = jst.toISOString().split('T')[0];
-    if (settings.holiday_dates.includes(dateStr)) return false;   // 休日
-    const hour = jst.getHours();
-    return hour >= settings.hours_start && hour < settings.hours_end; // 時間帯
+  /** 指定タイムゾーンでの「年月日・曜日・時」を取り出す */
+  function getZonedParts(date: Date, timeZone: string) {
+    const parts = new Map(
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', hour12: false, weekday: 'short',
+      }).formatToParts(date).map((p) => [p.type, p.value])
+    );
+    const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return {
+      dateString: `${parts.get('year')}-${parts.get('month')}-${parts.get('day')}`,
+      weekday: labels.indexOf(parts.get('weekday') ?? ''),  // 0=日〜6=土
+      hour: Number(parts.get('hour')) % 24,                 // 深夜0時が '24' の環境に備える
+    };
   }
 
-時間外・休日メッセージ（確定）：
-  ウィジェット起動時（時間外・休日共通）：
-    「現在の受付時間外です。AIが一次対応いたします。
-     担当者への引き継ぎが必要な場合は、次の営業時間（平日10:00〜18:00）にご連絡します。」
-  時間外・休日エスカレーション時：
-    「担当者への引き継ぎが必要な内容を承りました。
-     次の営業日にご連絡いたします。お待たせして大変申し訳ございません。」
+  /** 判定は純粋関数にする。時刻を引数で渡せるとテストで固定できる */
+  export function evaluateBusinessHours(
+    settings: BusinessSettings,
+    now: Date = new Date()
+  ): { isOpen: boolean; hoursStart: number } {
+    const hoursStart = settings.hours_start;
+    if (!settings.is_open_today) return { isOpen: false, hoursStart };   // 手動フラグ
+
+    const { dateString, weekday, hour } = getZonedParts(now, settings.timezone);
+    if (settings.closed_weekdays.includes(weekday)) return { isOpen: false, hoursStart };
+    if (settings.holiday_dates.some((d) => d.slice(0, 10) === dateString))
+      return { isOpen: false, hoursStart };
+
+    // hours_end ちょうどは営業時間外（18:00 は終了済み）
+    return { isOpen: hour >= settings.hours_start && hour < settings.hours_end, hoursStart };
+  }
+
+  // DBからの取得と失敗時のフォールバックは lib/businessHours.ts が担当する。
+  // 判定に失敗した場合は例外を投げず「営業時間外」を返すこと（安全側）。
+  // 営業時間内と誤判定すると、誰もいない時間に即対応を約束して放置することになる。
+
+時間外・休日メッセージ（確定・全箇所でこの1文に統一する）：
+  ウィジェット起動時・エスカレーション時とも共通：
+    「現在は営業時間外です。翌営業日（10:00以降）に担当者が対応します。」
+
+  ※ 文面を1つに統一する理由：
+    起動時とエスカレーション時で言い回しが違うと、顧客は
+    「状況が変わったのか」と受け取る。伝えるべき事実は
+    「今は時間外」「翌営業日に人間が対応する」の2点だけで
+    どちらの場面でも同じなので、文面も揃える。
+  ※ 10:00 の部分は business_settings.hours_start を参照して動的に出す
+    （設定変更が文面に反映されないと案内が嘘になるため）。
 ```
 
 ### ディレクトリ構成（確定）
@@ -790,7 +826,8 @@ export async function sendMessage(conversationId: string, text: string) {
                                         admin    : service_role（'server-only' を import）
   gemini.ts                          ← Gemini API接続
   session.ts                         ← 匿名サインイン管理（ensureAnonymousSession）
-  businessHours.ts                   ← 営業時間判定
+  businessHours.ts                   ← 営業時間判定（DB取得・失敗時のフォールバック）
+  businessHoursRules.ts              ← 営業時間の判定ルール（純粋関数・テスト対象）
 /types/index.ts                      ← 型定義
 /actions
   chat.ts                            ← 顧客向け Server Actions
