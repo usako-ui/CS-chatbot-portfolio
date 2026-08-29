@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { getConversationMessages } from '@/actions/chat';
 import { createClient } from '@/lib/supabase/client';
 import type { Message } from '@/types';
 
@@ -19,6 +20,8 @@ interface UseConversationMessagesResult {
   connection: ConnectionState;
   /** 楽観的更新用。Realtimeで同じidが来ても重複しない */
   appendMessage: (message: Message) => void;
+  /** サーバーの履歴と突き合わせて取りこぼしを埋める */
+  resync: () => Promise<void>;
 }
 
 /**
@@ -49,10 +52,32 @@ export function useConversationMessages(
     );
   }, []);
 
+  /**
+   * サーバー側の履歴で状態を作り直す。
+   *
+   * 購読が確立するまでの間に発生したINSERTはイベントが飛んでこないため、
+   * 購読直後と再接続後にこれを呼んで取りこぼしを埋める。
+   * 差し替えではなくマージにしているのは、楽観的に足した分を消さないため。
+   */
+  const syncFromServer = useCallback(async (id: string) => {
+    const result = await getConversationMessages(id);
+    if (!result.success || !result.data) return;
+    setMessages((prev) => {
+      const seen = new Set(prev.map((m) => m.id));
+      const added = result.data!.filter((m) => !seen.has(m.id));
+      if (added.length === 0) return prev;
+      return [...prev, ...added].sort((a, b) =>
+        a.created_at.localeCompare(b.created_at)
+      );
+    });
+  }, []);
+
   // appendMessage を購読の依存から外すための参照。
   // これを挟まないと再購読が走り、チャンネルが張り直されてしまう。
   const appendRef = useRef(appendMessage);
   appendRef.current = appendMessage;
+  const syncRef = useRef(syncFromServer);
+  syncRef.current = syncFromServer;
 
   useEffect(() => {
     if (!conversationId) return;
@@ -77,6 +102,9 @@ export function useConversationMessages(
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           setConnection('connected');
+          // 購読確立前に入ったメッセージを取り戻す。
+          // 再接続時もここを通るので、切断中の分もまとめて回収できる
+          void syncRef.current(conversationId);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           // Supabaseクライアントが自動で再接続を試みる。
           // ここでは顧客に状態を見せることだけを担当する。
@@ -91,5 +119,9 @@ export function useConversationMessages(
     };
   }, [conversationId]);
 
-  return { messages, connection, appendMessage };
+  const resync = useCallback(async () => {
+    if (conversationId) await syncRef.current(conversationId);
+  }, [conversationId]);
+
+  return { messages, connection, appendMessage, resync };
 }

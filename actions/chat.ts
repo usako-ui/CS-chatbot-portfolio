@@ -207,3 +207,27 @@ export async function createOrGetConversation(): Promise<
     };
   }
 }
+
+/**
+ * 会話のメッセージを取り直す（購読の取りこぼし回収用）。
+ *
+ * Realtime の postgres_changes は「購読が確立した後」のイベントしか届かない。
+ * ウィジェットを開いた直後に送信されると、購読完了前のINSERTを取りこぼし、
+ * AIの回答が画面に出ないまま残る（DBには保存されている）。
+ * 購読確立直後と再接続後にこれを呼んで差分を埋める。
+ *
+ * conversationId はクライアントから渡されるため、必ず所有権を突合する。
+ */
+export async function getConversationMessages(
+  conversationId: string
+): Promise<ActionResult<Message[]>> {
+  try {
+    const customerUserId = await requireCustomerId();
+    await requireOwnedConversation(conversationId, customerUserId);
+    const messages = await listMessages(conversationId);
+    return { success: true, data: messages };
+  } catch (error) {
+    console.error('[getConversationMessages] 取得に失敗:', error);
+    return { success: false, error: '履歴の取得に失敗しました。' };
+  }
+}

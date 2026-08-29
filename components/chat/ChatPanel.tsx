@@ -34,6 +34,27 @@ AIがお答えします。人間のサポートが必要な場合は自動でつ
 
 const EMPTY_MESSAGES: Message[] = [];
 
+/**
+ * 進行中の会話準備。同時呼び出しをここで1本にまとめる。
+ *
+ * Reactの開発モードは useEffect を2回実行する。
+ * まとめないと createOrGetConversation が2回並走し、
+ * どちらも「未完了の会話なし」と判定して会話を2件作ってしまう。
+ *
+ * finally で解放しているので、共有されるのは同時に走ったぶんだけ。
+ * ウィジェットを閉じて開き直したときは改めて取得し直し、
+ * その間に届いたメッセージも履歴に反映される。
+ */
+let bootstrapInFlight: ReturnType<typeof createOrGetConversation> | null = null;
+
+function bootstrapConversation() {
+  if (bootstrapInFlight) return bootstrapInFlight;
+  bootstrapInFlight = createOrGetConversation().finally(() => {
+    bootstrapInFlight = null;
+  });
+  return bootstrapInFlight;
+}
+
 export function ChatPanel({ onClose }: { onClose: () => void }) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [initialMessages, setInitialMessages] = useState<Message[]>(EMPTY_MESSAGES);
@@ -46,7 +67,7 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
   const [escalated, setEscalated] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
 
-  const { messages, connection, appendMessage } = useConversationMessages(
+  const { messages, connection, resync } = useConversationMessages(
     conversationId,
     initialMessages
   );
@@ -62,7 +83,7 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
         // 「購読は成功しているのに何も届かない」状態になる
         await ensureAnonymousSession();
 
-        const result = await createOrGetConversation();
+        const result = await bootstrapConversation();
         if (cancelled) return;
 
         if (!result.success || !result.data) {
@@ -118,7 +139,12 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
 
       if (result.data?.escalated) setEscalated(true);
       if (result.data) setIsBusinessHours(!result.data.afterHours);
-      // 顧客メッセージもAI回答もRealtimeのINSERTで届くため、ここでは何も追加しない
+
+      // 通常は顧客メッセージもAI回答もRealtimeのINSERTで届く。
+      // ただし購読が確立する前や瞬断中に送信された分はイベントが飛ばないため、
+      // 送信完了後に必ずサーバーと突き合わせて取りこぼしを埋める。
+      // 既に届いている分は id で弾かれるので二重表示にはならない。
+      await resync();
     } catch (error) {
       console.error('[ChatPanel] 送信に失敗:', error);
       setInput(text);
