@@ -199,3 +199,12 @@ export function BotIcon({ size = 20, ...rest }: IconProps) {
     </svg>
   );
 }
+
+/** ハンバーガー：サイドバー開閉（タブレット幅） */
+export function MenuIcon({ size = 20, ...rest }: IconProps) {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M3 12h18M3 6h18M3 18h18" />
+    </svg>
+  );
+}

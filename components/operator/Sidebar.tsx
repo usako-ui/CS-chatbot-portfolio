@@ -3,6 +3,11 @@
  *
  * 構成：問い合わせ一覧 / 対応中 / 新規 / 完了 / すべての会話 /
  *       FAQ管理 / 設定 / ログアウト / オペレーターオンライン表示
+ *
+ * 【レスポンシブ】境界は xl（1280px）。
+ *   1280px以上（PC）      : 常時表示の固定2カラム
+ *   768〜1279px（タブレット）: 既定で隠し、ハンバーガーで開くドロワー
+ * スマートフォン（767px以下）はMVPスコープ外。
  */
 'use client';
 
@@ -45,9 +50,14 @@ const TOOLS: NavItem[] = [
 export function Sidebar({
   operatorName,
   waitingCount,
+  isOpen,
+  onClose,
 }: {
   operatorName: string;
   waitingCount: number;
+  /** タブレット幅でドロワーを開いているか。PC幅では無視される */
+  isOpen: boolean;
+  onClose: () => void;
 }) {
   const pathname = usePathname();
   const params = useSearchParams();
@@ -62,6 +72,15 @@ export function Sidebar({
     return query === `status=${currentStatus}`;
   }
 
+  /**
+   * タブレット幅ではリンクを選んだらドロワーを閉じる。
+   * 開いたままだと遷移先の内容が隠れてしまう。
+   * PC幅では onClose を呼んでも常時表示のままなので影響しない。
+   */
+  function handleNavigate() {
+    onClose();
+  }
+
   async function handleLogout() {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -72,7 +91,23 @@ export function Sidebar({
   }
 
   return (
-    <aside className="flex w-56 shrink-0 flex-col bg-brand-sidebar text-white">
+    <>
+      {/* タブレット幅でドロワーを開いたときの背面。
+          タップで閉じられるようにして、閉じる導線を増やす */}
+      {isOpen && (
+        <div
+          onClick={onClose}
+          aria-hidden
+          className="fixed inset-0 z-30 bg-brand-text/40 xl:hidden"
+        />
+      )}
+
+      <aside
+        className={`z-40 flex w-56 shrink-0 flex-col bg-brand-sidebar text-white transition-transform duration-200
+          max-xl:fixed max-xl:inset-y-0 max-xl:left-0 max-xl:shadow-2xl
+          ${isOpen ? 'max-xl:translate-x-0' : 'max-xl:-translate-x-full'}
+          xl:static xl:translate-x-0`}
+      >
       <div className="flex items-center gap-2 px-4 py-4">
         <LeafIcon size={22} />
         <div>
@@ -87,6 +122,7 @@ export function Sidebar({
             <li key={item.href}>
               <Link
                 href={item.href}
+                onClick={handleNavigate}
                 className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
                   isActive(item.href)
                     ? 'bg-brand-primary font-medium'
@@ -113,6 +149,7 @@ export function Sidebar({
             <li key={item.href}>
               <Link
                 href={item.href}
+                onClick={handleNavigate}
                 className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
                   pathname.startsWith(item.href)
                     ? 'bg-brand-primary font-medium'
@@ -146,6 +183,7 @@ export function Sidebar({
           ログアウト
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
