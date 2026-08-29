@@ -25,6 +25,7 @@ import {
   SettingsIcon,
 } from '@/components/icons';
 import { createClient } from '@/lib/supabase/client';
+import { WAITING_NOTICE_SEEN_KEY } from '@/components/operator/WaitingModal';
 
 interface NavItem {
   label: string;
@@ -84,6 +85,16 @@ export function Sidebar({
   async function handleLogout() {
     const supabase = createClient();
     await supabase.auth.signOut();
+
+    // 交代でログインした担当者にも未対応モーダルを出す。
+    // 消さないと、同じPCで引き継いだ次の担当者に通知が届かない
+    // （フルタイム1名・パート1名の交代制が前提のため実際に起きる）。
+    try {
+      sessionStorage.removeItem(WAITING_NOTICE_SEEN_KEY);
+    } catch {
+      // プライベートモード等で sessionStorage が使えない場合は何もしない
+    }
+
     router.replace('/login');
     // Cookieの変更を middleware に読み直させる。
     // これが無いと、戻るボタンでキャッシュされた管理画面が見えてしまう

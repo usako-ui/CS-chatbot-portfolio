@@ -27,14 +27,22 @@ export function FaqClient() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const load = useCallback(async () => {
-    const result = await fetchAllFaqs();
-    if (!result.success || !result.data) {
-      setError(result.error ?? 'FAQを取得できませんでした。');
-    } else {
-      setFaqs(result.data);
-      setError(null);
+    // 呼び出し元が void で呼び捨てる箇所があるため、
+    // ここで例外を握りつぶさないと unhandled rejection になる
+    try {
+      const result = await fetchAllFaqs();
+      if (!result.success || !result.data) {
+        setError(result.error ?? 'FAQを取得できませんでした。');
+      } else {
+        setFaqs(result.data);
+        setError(null);
+      }
+    } catch (err) {
+      console.error('[FaqClient] FAQの取得に失敗:', err);
+      setError('通信に失敗しました。接続を確認してページを再読み込みしてください。');
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, []);
 
   useEffect(() => {
@@ -47,17 +55,26 @@ export function FaqClient() {
     setError(null);
     setNotice(null);
 
-    const result = await createFaq(category, question, answer);
-    if (!result.success) {
-      setError(result.error ?? 'FAQを追加できませんでした。');
-    } else {
-      setQuestion('');
-      setAnswer('');
-      setIsFormOpen(false);
-      setNotice('FAQを追加しました。次回の問い合わせからAIが参照します。');
-      await load();
+    try {
+      const result = await createFaq(category, question, answer);
+      if (!result.success) {
+        setError(result.error ?? 'FAQを追加できませんでした。');
+      } else {
+        setQuestion('');
+        setAnswer('');
+        setIsFormOpen(false);
+        setNotice('FAQを追加しました。次回の問い合わせからAIが参照します。');
+        await load();
+      }
+    } catch (err) {
+      // 通信断では Server Action が reject する。
+      // 捕まえないと「追加しています...」のまま押せなくなり、
+      // 入力内容を残したまま操作不能になる
+      console.error('[FaqClient] FAQの追加に失敗:', err);
+      setError('通信に失敗しました。接続を確認してもう一度お試しください。');
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   }
 
   async function handleToggle(faq: FAQ) {
@@ -67,9 +84,17 @@ export function FaqClient() {
     setFaqs((prev) =>
       prev.map((f) => (f.id === faq.id ? { ...f, is_active: !f.is_active } : f))
     );
-    const result = await toggleFaq(faq.id, !faq.is_active);
-    if (!result.success) setError(result.error ?? '状態を変更できませんでした。');
-    await load();
+    try {
+      const result = await toggleFaq(faq.id, !faq.is_active);
+      if (!result.success) setError(result.error ?? '状態を変更できませんでした。');
+    } catch (err) {
+      console.error('[FaqClient] FAQの状態変更に失敗:', err);
+      setError('通信に失敗しました。接続を確認してもう一度お試しください。');
+    } finally {
+      // 失敗しても必ず取り直す。先に画面だけ切り替えているため、
+      // ここで戻さないと実際のDBと表示がずれたままになる
+      await load();
+    }
   }
 
   const activeCount = faqs.filter((f) => f.is_active).length;

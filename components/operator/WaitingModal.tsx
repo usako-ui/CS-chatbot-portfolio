@@ -15,7 +15,9 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BellIcon, CloseIcon } from '@/components/icons';
 
-const SEEN_KEY = 'botanica_waiting_notice_seen';
+/** 未対応モーダルの表示済みフラグ。ログアウト時に Sidebar から消す */
+export const WAITING_NOTICE_SEEN_KEY = 'botanica_waiting_notice_seen';
+const SEEN_KEY = WAITING_NOTICE_SEEN_KEY;
 
 export function WaitingModal({ waitingCount }: { waitingCount: number }) {
   const [isOpen, setIsOpen] = useState(false);

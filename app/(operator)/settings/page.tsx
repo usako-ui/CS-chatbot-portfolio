@@ -27,7 +27,7 @@ export default async function SettingsPage() {
   return (
     <OperatorShell
       operatorName={operator.name}
-      initialWaitingCount={waitingCount}
+      waitingCount={waitingCount}
       title="営業設定"
       actions={<OpenTodayToggle initialOpen={settings.is_open_today} />}
     >

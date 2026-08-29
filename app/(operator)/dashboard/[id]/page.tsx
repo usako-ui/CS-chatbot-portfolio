@@ -30,7 +30,7 @@ export default async function ConversationDetailPage({
   return (
     <OperatorShell
       operatorName={operator.name}
-      initialWaitingCount={waitingCount}
+      waitingCount={waitingCount}
       title="会話詳細"
     >
       <ConversationDetailClient conversationId={id} />

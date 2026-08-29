@@ -13,6 +13,9 @@ import { useOperatorRealtime } from '@/components/operator/useOperatorRealtime';
 import { AlertIcon, BotIcon, ChatIcon, OperatorIcon } from '@/components/icons';
 import type { ConversationStatus } from '@/types';
 
+/** 一覧の取得上限。lib/operatorData.ts の limit と揃えること */
+const LIST_LIMIT = 200;
+
 /** サイドバーの絞り込みをステータス配列に変換する */
 function toStatuses(param: string | null): ConversationStatus[] | undefined {
   if (!param || param === 'all') return undefined;
@@ -53,21 +56,30 @@ export function ConversationList({
 
   const load = useCallback(async () => {
     const statuses = toStatuses(statusParam);
-    const [list, waiting] = await Promise.all([
-      fetchConversations(statuses),
-      fetchWaitingCount(),
-    ]);
+    // Realtime のコールバックから void で呼ばれるため、
+    // 例外を捕まえないと unhandled rejection になる。
+    // 通信断では Server Action が reject する（戻り値の error にはならない）
+    try {
+      const [list, waiting] = await Promise.all([
+        fetchConversations(statuses),
+        fetchWaitingCount(),
+      ]);
 
-    if (!list.success || !list.data) {
-      setError(list.error ?? '一覧を取得できませんでした。');
-    } else {
-      setItems(list.data);
-      setError(null);
+      if (!list.success || !list.data) {
+        setError(list.error ?? '一覧を取得できませんでした。');
+      } else {
+        setItems(list.data);
+        setError(null);
+      }
+      if (waiting.success && waiting.data !== undefined) {
+        onWaitingCountChange?.(waiting.data);
+      }
+    } catch (err) {
+      console.error('[ConversationList] 一覧の取得に失敗:', err);
+      setError('通信に失敗しました。接続を確認してください。');
+    } finally {
+      setIsLoading(false);
     }
-    if (waiting.success && waiting.data !== undefined) {
-      onWaitingCountChange?.(waiting.data);
-    }
-    setIsLoading(false);
   }, [statusParam, onWaitingCountChange]);
 
   useEffect(() => {
@@ -101,6 +113,14 @@ export function ConversationList({
           <AlertIcon size={15} className="mt-0.5 shrink-0" />
           <p>{error}</p>
         </div>
+      )}
+
+      {/* 取得上限に達している場合は、古い分が表示されていないことを明示する。
+          黙って切ると「過去の会話が消えた」と誤解される（Q-003は無期限保存） */}
+      {items.length >= LIST_LIMIT && (
+        <p className="border-b border-brand-accent/60 bg-brand-accent/15 px-6 py-2 text-[12px] text-brand-secondary">
+          最新{LIST_LIMIT}件を表示しています。これより古い会話は表示されません。
+        </p>
       )}
 
       {items.length === 0 ? (

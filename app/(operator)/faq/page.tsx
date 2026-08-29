@@ -23,7 +23,7 @@ export default async function FaqPage() {
   return (
     <OperatorShell
       operatorName={operator.name}
-      initialWaitingCount={waitingCount}
+      waitingCount={waitingCount}
       title="FAQ管理"
     >
       <FaqClient />

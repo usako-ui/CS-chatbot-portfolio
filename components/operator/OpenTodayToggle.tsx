@@ -31,15 +31,26 @@ export function OpenTodayToggle({ initialOpen }: { initialOpen: boolean }) {
     }
 
     setIsSaving(true);
-    const result = await updateBusinessSettings({ is_open_today: next });
-    if (result.success) {
-      setIsOpen(next);
-      // 他の画面（設定ページの注意書き等）にも反映させる
-      router.refresh();
-    } else {
-      window.alert(result.error ?? '切り替えに失敗しました。');
+    try {
+      const result = await updateBusinessSettings({ is_open_today: next });
+      if (result.success) {
+        setIsOpen(next);
+        // 他の画面（設定ページの注意書き等）にも反映させる
+        router.refresh();
+      } else {
+        window.alert(result.error ?? '切り替えに失敗しました。');
+      }
+    } catch (error) {
+      // 通信断では Server Action が reject する（戻り値の error にはならない）。
+      // ここで捕まえないとボタンが「切替中...」のまま固まり、
+      // ページを再読み込みするまで臨時休業の切り替えができなくなる
+      console.error('[OpenTodayToggle] 切り替えに失敗:', error);
+      window.alert('通信に失敗しました。接続を確認してもう一度お試しください。');
+    } finally {
+      // 成否にかかわらずボタンを戻す。finally に置かないと
+      // 例外のときだけ復帰しない状態が残る
+      setIsSaving(false);
     }
-    setIsSaving(false);
   }
 
   return (

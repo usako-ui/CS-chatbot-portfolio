@@ -51,19 +51,27 @@ export function SettingsClient({ initial }: { initial: BusinessSettings }) {
     setError(null);
     setNotice(null);
 
-    const result = await updateBusinessSettings({
-      hours_start: hoursStart,
-      hours_end: hoursEnd,
-      closed_weekdays: closedWeekdays,
-      holiday_dates: holidays,
-    });
+    try {
+      const result = await updateBusinessSettings({
+        hours_start: hoursStart,
+        hours_end: hoursEnd,
+        closed_weekdays: closedWeekdays,
+        holiday_dates: holidays,
+      });
 
-    if (!result.success) {
-      setError(result.error ?? '保存できませんでした。');
-    } else {
-      setNotice('保存しました。顧客側の表示にすぐ反映されます。');
+      if (!result.success) {
+        setError(result.error ?? '保存できませんでした。');
+      } else {
+        setNotice('保存しました。顧客側の表示にすぐ反映されます。');
+      }
+    } catch (err) {
+      // 通信断では Server Action が reject する。
+      // 捕まえないと「保存しています...」のまま押せなくなる
+      console.error('[SettingsClient] 営業設定の保存に失敗:', err);
+      setError('通信に失敗しました。接続を確認してもう一度お試しください。');
+    } finally {
+      setIsSaving(false);
     }
-    setIsSaving(false);
   }
 
   return (

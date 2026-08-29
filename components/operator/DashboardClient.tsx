@@ -24,7 +24,7 @@ export function DashboardClient({
   return (
     <OperatorShell
       operatorName={operatorName}
-      initialWaitingCount={waitingCount}
+      waitingCount={waitingCount}
       title="問い合わせ一覧"
       actions={<OpenTodayToggle initialOpen={isOpenToday} />}
     >

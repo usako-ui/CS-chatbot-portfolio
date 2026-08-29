@@ -12,7 +12,7 @@
  */
 'use client';
 
-import { createContext, Suspense, useContext, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Sidebar } from '@/components/operator/Sidebar';
 import { WaitingModal } from '@/components/operator/WaitingModal';
@@ -20,19 +20,26 @@ import { MenuIcon } from '@/components/icons';
 
 export function OperatorShell({
   operatorName,
-  initialWaitingCount,
+  waitingCount,
   title,
   actions,
   children,
 }: {
   operatorName: string;
-  initialWaitingCount: number;
+  /**
+   * 未対応件数。呼び出し側（DashboardClient）が保持し、
+   * 一覧の更新に合わせて渡し直す。
+   *
+   * ここで useState の初期値として受けてはいけない。
+   * useState の初期値は最初のレンダーでしか使われないため、
+   * 一覧が件数を更新してもサイドバーのバッジが古いまま止まる。
+   */
+  waitingCount: number;
   title: string;
   /** ヘッダー右側に置く操作（当日休業トグル等） */
   actions?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const [waitingCount, setWaitingCount] = useState(initialWaitingCount);
   const [isNavOpen, setIsNavOpen] = useState(false);
 
   return (
@@ -68,12 +75,9 @@ export function OperatorShell({
           {actions}
         </header>
 
-        <main className="flex-1 overflow-y-auto">
-          {/* 子側から未対応件数を更新できるようにコンテキスト代わりに渡す */}
-          <WaitingCountContext.Provider value={setWaitingCount}>
-            {children}
-          </WaitingCountContext.Provider>
-        </main>
+        {/* 未対応件数は各画面から props で渡ってくる（DashboardClient 経由）。
+            Context は使っていない */}
+        <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
 
       <WaitingModal waitingCount={waitingCount} />
@@ -105,11 +109,4 @@ function CloseNavOnNavigate({ onClose }: { onClose: () => void }) {
   }, [key]);
 
   return null;
-}
-
-/** 一覧が最新の未対応件数を拾ったときにサイドバーへ伝えるための経路 */
-const WaitingCountContext = createContext<(n: number) => void>(() => {});
-
-export function useSetWaitingCount() {
-  return useContext(WaitingCountContext);
 }

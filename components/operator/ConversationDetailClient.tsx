@@ -70,21 +70,34 @@ export function ConversationDetailClient({
   const [isLoading, setIsLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const result = await fetchConversationDetail(conversationId);
-    if (!result.success || !result.data) {
-      setError(result.error ?? '会話を取得できませんでした。');
-    } else {
-      setDetail(result.data);
-      setError(null);
+    // Realtime のコールバックから void で呼ばれるため例外を捕まえる
+    try {
+      const result = await fetchConversationDetail(conversationId);
+      if (!result.success || !result.data) {
+        setError(result.error ?? '会話を取得できませんでした。');
+      } else {
+        setDetail(result.data);
+        setError(null);
+      }
+    } catch (err) {
+      console.error('[ConversationDetail] 会話の取得に失敗:', err);
+      setError('通信に失敗しました。接続を確認してください。');
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, [conversationId]);
 
   useEffect(() => {
     void load();
-    void fetchOperators().then((r) => {
-      if (r.success && r.data) setOperators(r.data);
-    });
+    void fetchOperators()
+      .then((r) => {
+        if (r.success && r.data) setOperators(r.data);
+      })
+      .catch((err) => {
+        // 担当者一覧が取れなくても会話の閲覧・返信はできる。
+        // プルダウンが空になるだけなので画面は止めない
+        console.error('[ConversationDetail] オペレーター一覧の取得に失敗:', err);
+      });
   }, [load]);
 
   // 顧客からの新着を即時反映する
@@ -133,20 +146,29 @@ export function ConversationDetailClient({
         return;
       }
       await load();
+    } catch (err) {
+      console.error('[ConversationDetail] 完了処理に失敗:', err);
+      setError('通信に失敗しました。接続を確認してもう一度お試しください。');
     } finally {
       setIsClosing(false);
     }
   }
 
   async function handleAssign(operatorId: string) {
-    const result = await assignOperator(
-      conversationId,
-      operatorId === '' ? null : operatorId
-    );
-    if (!result.success) {
-      setError(result.error ?? '担当者を変更できませんでした。');
-      return;
+    try {
+      const result = await assignOperator(
+        conversationId,
+        operatorId === '' ? null : operatorId
+      );
+      if (!result.success) {
+        setError(result.error ?? '担当者を変更できませんでした。');
+        return;
+      }
+    } catch (err) {
+      console.error('[ConversationDetail] 担当者の変更に失敗:', err);
+      setError('通信に失敗しました。接続を確認してもう一度お試しください。');
     }
+    // 失敗時も取り直す。プルダウンの表示を実際の担当者に戻すため
     await load();
   }
 
