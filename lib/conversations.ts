@@ -9,7 +9,7 @@
 import 'server-only';
 
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import type { ConversationStatus, SenderType } from '@/types';
+import type { ConversationStatus, Message, SenderType } from '@/types';
 
 /** DBの status は TEXT 型のため、型定義側の4種と一致するか実際に確認する */
 const CONVERSATION_STATUSES: readonly ConversationStatus[] = [
@@ -118,4 +118,74 @@ export async function setConversationStatus(
   if (error) {
     throw new Error(`会話ステータスの更新に失敗しました: ${error.message}`);
   }
+}
+
+/**
+ * 会話内のメッセージを時系列で取得する（T-18・会話履歴の復元用）。
+ *
+ * 呼び出し側は事前に requireOwnedConversation() で所有権を確認すること。
+ * この関数自体は所有権を見ないため、単体で使うと他人の会話を読めてしまう。
+ */
+export async function listMessages(conversationId: string): Promise<Message[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('messages')
+    .select('id, conversation_id, sender_type, sender_id, content, created_at')
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    throw new Error(`メッセージの取得に失敗しました: ${error.message}`);
+  }
+  return (data ?? []) as Message[];
+}
+
+/**
+ * 未完了の会話を探し、無ければ新規作成する（Q-011 確定仕様）。
+ *
+ * 「closed 以外の会話があれば継続」とすることで、
+ * 顧客がウィジェットを閉じて開き直しても会話が途切れない。
+ * オペレーターから見ても1つの問い合わせが分断されずに済む。
+ *
+ * @param customerUserId requireCustomerId() で確定させた顧客のUID
+ */
+export async function findOrCreateOpenConversation(
+  customerUserId: string
+): Promise<OwnedConversation> {
+  const admin = getSupabaseAdmin();
+
+  // 継続対象を探す。複数残っていた場合は最新のものを使う
+  const { data: existing, error: selectError } = await admin
+    .from('conversations')
+    .select('id, status')
+    .eq('customer_user_id', customerUserId)
+    .neq('status', 'closed')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (selectError) {
+    throw new Error(`会話の検索に失敗しました: ${selectError.message}`);
+  }
+
+  if (existing && isConversationStatus(existing.status)) {
+    return { id: existing.id, status: existing.status };
+  }
+
+  const { data: created, error: insertError } = await admin
+    .from('conversations')
+    .insert({ customer_user_id: customerUserId })
+    .select('id, status')
+    .single();
+
+  if (insertError || !created) {
+    throw new Error(
+      `会話の作成に失敗しました: ${insertError?.message ?? '不明なエラー'}`
+    );
+  }
+
+  if (!isConversationStatus(created.status)) {
+    throw new Error(`会話のステータスが不正です: ${created.status}`);
+  }
+
+  return { id: created.id, status: created.status };
 }

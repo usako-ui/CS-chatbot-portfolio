@@ -17,13 +17,19 @@ import {
   getBusinessHoursStatus,
 } from '@/lib/businessHours';
 import {
+  findOrCreateOpenConversation,
   insertMessage,
+  listMessages,
   requireOwnedConversation,
   setConversationStatus,
 } from '@/lib/conversations';
 import { requireCustomerId } from '@/lib/supabase/server';
 import { validateMessageText } from '@/lib/validation';
-import type { ActionResult } from '@/types';
+import type {
+  ActionResult,
+  ConversationStatus,
+  Message,
+} from '@/types';
 
 /** 顧客メッセージ送信の結果。UIはこれを見てローディング解除と表示を行う */
 export interface SendMessageResult {
@@ -135,4 +141,69 @@ export async function sendCustomerMessage(
     success: true,
     data: { aiMessage, escalated: aiResponse.escalate, afterHours },
   };
+}
+
+/** ウィジェット起動時に返す初期状態（T-18） */
+export interface ConversationBootstrap {
+  conversationId: string;
+  status: ConversationStatus;
+  /** 継続会話の場合は過去のやり取り。新規なら空配列（AC-014：履歴の保持） */
+  messages: Message[];
+  /** 営業時間内か。時間外バナーの出し分けに使う（FR-CUS-006） */
+  isBusinessHours: boolean;
+  /** 翌営業日の開始時刻。時間外案内の文面に使う */
+  hoursStart: number;
+}
+
+/**
+ * ウィジェット起動時に会話を用意する（T-18）。
+ *
+ * 【重要】この関数は引数を一切取らない。
+ * 顧客IDは requireCustomerId() が Cookie 上の匿名JWTを
+ * Authサーバーで署名検証して確定させる。
+ *
+ * 仮に customerUserId を引数で受け取る設計にすると、
+ * Server Action の引数はクライアントが自由に改ざんできるため、
+ * 他人のUIDを渡すだけで他人の会話を継続・閲覧できてしまう。
+ * この関数は service_role で動きRLSが効かないので、
+ * 引数を信用した時点で AC-012 が崩壊する。
+ *
+ * closed 以外の会話があれば継続、なければ新規作成する（Q-011 確定）。
+ */
+export async function createOrGetConversation(): Promise<
+  ActionResult<ConversationBootstrap>
+> {
+  let customerUserId: string;
+  try {
+    customerUserId = await requireCustomerId();
+  } catch (error) {
+    console.error('[createOrGetConversation] 顧客の本人確認に失敗:', error);
+    return {
+      success: false,
+      error: 'セッションを開始できませんでした。ページを再読み込みしてください。',
+    };
+  }
+
+  try {
+    const conversation = await findOrCreateOpenConversation(customerUserId);
+    const messages = await listMessages(conversation.id);
+    const { isOpen, hoursStart } = await getBusinessHoursStatus();
+
+    return {
+      success: true,
+      data: {
+        conversationId: conversation.id,
+        status: conversation.status,
+        messages,
+        isBusinessHours: isOpen,
+        hoursStart,
+      },
+    };
+  } catch (error) {
+    console.error('[createOrGetConversation] 会話の準備に失敗:', error);
+    return {
+      success: false,
+      error: 'チャットを開始できませんでした。時間をおいてお試しください。',
+    };
+  }
 }
