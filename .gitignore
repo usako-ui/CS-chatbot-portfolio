@@ -16,6 +16,11 @@ tasks.md
 agent-brief.md
 botanica_design_v3.html
 
+# 講座提供のナレッジ原本（CSV）。
+#   FAQ本文は supabase/seed.sql に取り込み済みのため、原本は公開しない。
+#   ファイルはローカルに残るので、差し替え時はそのまま参照してよい。
+docs/knowledge/
+
 # ============================================
 # Git worktree の展開先
 #   .worktrees/ 配下は各featureブランチの作業ディレクトリ。
