@@ -9,7 +9,7 @@
 import 'server-only';
 
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import type { ConversationStatus } from '@/types';
+import type { ConversationStatus, SenderType } from '@/types';
 
 /** DBの status は TEXT 型のため、型定義側の4種と一致するか実際に確認する */
 const CONVERSATION_STATUSES: readonly ConversationStatus[] = [
@@ -61,4 +61,61 @@ export async function requireOwnedConversation(
   }
 
   return { id: data.id, status: data.status };
+}
+
+/**
+ * メッセージを1件保存する。
+ *
+ * @param senderId オペレーターのみ指定する。顧客・AIは NULL（DBスキーマの取り決め）
+ * @throws 保存に失敗した場合。呼び出し側は顧客に再送信を促すこと
+ */
+export async function insertMessage(
+  conversationId: string,
+  senderType: SenderType,
+  content: string,
+  senderId: string | null = null
+): Promise<void> {
+  const { error } = await getSupabaseAdmin().from('messages').insert({
+    conversation_id: conversationId,
+    sender_type: senderType,
+    sender_id: senderId,
+    content,
+  });
+
+  if (error) {
+    throw new Error(`メッセージの保存に失敗しました: ${error.message}`);
+  }
+}
+
+/**
+ * 会話のステータスを更新する。
+ *
+ * updated_at を明示的に入れているのは、管理画面の一覧を
+ * 「最終更新が新しい順」で並べるため（DBにトリガーを置いていない）。
+ *
+ * @param assignedOperatorId 指定すると担当者も同時にセットする（Q-001の自動割り当て）
+ */
+export async function setConversationStatus(
+  conversationId: string,
+  status: ConversationStatus,
+  assignedOperatorId?: string
+): Promise<void> {
+  const patch: {
+    status: ConversationStatus;
+    updated_at: string;
+    assigned_operator_id?: string;
+  } = { status, updated_at: new Date().toISOString() };
+
+  if (assignedOperatorId) {
+    patch.assigned_operator_id = assignedOperatorId;
+  }
+
+  const { error } = await getSupabaseAdmin()
+    .from('conversations')
+    .update(patch)
+    .eq('id', conversationId);
+
+  if (error) {
+    throw new Error(`会話ステータスの更新に失敗しました: ${error.message}`);
+  }
 }
