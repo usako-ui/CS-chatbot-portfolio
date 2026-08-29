@@ -11,6 +11,8 @@ import type { BusinessSettings } from '@/types';
 export interface BusinessHoursStatus {
   /** true なら営業時間内 */
   isOpen: boolean;
+  /** 判定に使ったタイムゾーン。顧客側の時刻表示を設定に追従させるため返す */
+  timezone: string;
   /** 営業開始時刻（時）。時間外メッセージの「翌営業日（10:00以降）」に使う */
   hoursStart: number;
 }
@@ -67,25 +69,29 @@ export function evaluateBusinessHours(
   now: Date = new Date()
 ): BusinessHoursStatus {
   const hoursStart = settings.hours_start;
+  // 顧客側の時刻表示をこの設定に追従させるため、判定結果と一緒に返す。
+  // 表示側で 'Asia/Tokyo' を直書きすると、設定を変えたときに
+  // 判定と表示でタイムゾーンが食い違う
+  const timezone = settings.timezone;
 
   if (!settings.is_open_today) {
-    return { isOpen: false, hoursStart };
+    return { isOpen: false, hoursStart, timezone };
   }
 
   const { dateString, weekday, hour } = getZonedParts(now, settings.timezone);
 
   if (settings.closed_weekdays.includes(weekday)) {
-    return { isOpen: false, hoursStart };
+    return { isOpen: false, hoursStart, timezone };
   }
   // holiday_dates は DATE[] のため 'YYYY-MM-DD' で返る。
   // 将来タイムスタンプ混じりの値が入っても比較できるよう先頭10文字で揃える。
   if (settings.holiday_dates.some((day) => day.slice(0, 10) === dateString)) {
-    return { isOpen: false, hoursStart };
+    return { isOpen: false, hoursStart, timezone };
   }
   // hours_end ちょうどは営業時間外（18:00 は終了済み）
   const isOpen = hour >= settings.hours_start && hour < settings.hours_end;
 
-  return { isOpen, hoursStart };
+  return { isOpen, hoursStart, timezone };
 }
 
 /**

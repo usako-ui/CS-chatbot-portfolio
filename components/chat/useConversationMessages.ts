@@ -60,7 +60,16 @@ export function useConversationMessages(
    * 差し替えではなくマージにしているのは、楽観的に足した分を消さないため。
    */
   const syncFromServer = useCallback(async (id: string) => {
-    const result = await getConversationMessages(id);
+    // 呼び出し元は購読コールバック内から void で呼び捨てるため、
+    // ここで例外を握りつぶさないと unhandled rejection になる。
+    // 通信断ではServer Action自体が reject する（戻り値のerrorにはならない）。
+    let result: Awaited<ReturnType<typeof getConversationMessages>>;
+    try {
+      result = await getConversationMessages(id);
+    } catch (error) {
+      console.error('[useConversationMessages] 履歴の再取得に失敗:', error);
+      return;
+    }
     if (!result.success || !result.data) return;
     setMessages((prev) => {
       const seen = new Set(prev.map((m) => m.id));

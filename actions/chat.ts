@@ -92,9 +92,15 @@ export async function sendCustomerMessage(
   // 担当者が対応している最中にAIが割り込むと会話が二重になるため
   // （requirements.md「エスカレーション後はAIの自動回答を停止する」）。
   if (status !== 'ai_handling') {
+    // afterHours は「今が営業時間外か」という事実であり、
+    // AIを動かすかどうかとは独立している。
+    // ここを false 固定にすると、深夜に追加送信した顧客の画面から
+    // 時間外バナーが消え「そのままお待ちください」と案内してしまう
+    // （担当者は翌営業日まで来ないのに、その場で待たせることになる）。
+    const { isOpen } = await getBusinessHoursStatus();
     return {
       success: true,
-      data: { aiMessage: null, escalated: false, afterHours: false },
+      data: { aiMessage: null, escalated: false, afterHours: !isOpen },
     };
   }
 
@@ -153,6 +159,8 @@ export interface ConversationBootstrap {
   isBusinessHours: boolean;
   /** 翌営業日の開始時刻。時間外案内の文面に使う */
   hoursStart: number;
+  /** 営業設定のタイムゾーン。メッセージの時刻表示に使う */
+  timezone: string;
 }
 
 /**
@@ -187,7 +195,7 @@ export async function createOrGetConversation(): Promise<
   try {
     const conversation = await findOrCreateOpenConversation(customerUserId);
     const messages = await listMessages(conversation.id);
-    const { isOpen, hoursStart } = await getBusinessHoursStatus();
+    const { isOpen, hoursStart, timezone } = await getBusinessHoursStatus();
 
     return {
       success: true,
@@ -197,6 +205,7 @@ export async function createOrGetConversation(): Promise<
         messages,
         isBusinessHours: isOpen,
         hoursStart,
+        timezone,
       },
     };
   } catch (error) {

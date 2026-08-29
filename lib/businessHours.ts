@@ -21,7 +21,11 @@ export { evaluateBusinessHours, buildAfterHoursNotice } from '@/lib/businessHour
 export type { BusinessHoursStatus } from '@/lib/businessHoursRules';
 
 /** 判定に失敗したときの既定値。安全側に倒して「営業時間外」として扱う */
-const FALLBACK_STATUS: BusinessHoursStatus = { isOpen: false, hoursStart: 10 };
+const FALLBACK_STATUS: BusinessHoursStatus = {
+  isOpen: false,
+  hoursStart: 10,
+  timezone: 'Asia/Tokyo',
+};
 
 /**
  * 営業設定を取得する。

@@ -34,6 +34,9 @@ AIがお答えします。人間のサポートが必要な場合は自動でつ
 
 const EMPTY_MESSAGES: Message[] = [];
 
+/** 送信後に次の送信を受け付けないミリ秒数（連打対策） */
+const COOLDOWN_MS = 3000;
+
 /**
  * 進行中の会話準備。同時呼び出しをここで1本にまとめる。
  *
@@ -60,10 +63,18 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
   const [initialMessages, setInitialMessages] = useState<Message[]>(EMPTY_MESSAGES);
   const [isBusinessHours, setIsBusinessHours] = useState(true);
   const [hoursStart, setHoursStart] = useState(10);
+  const [timezone, setTimezone] = useState('Asia/Tokyo');
 
   const [input, setInput] = useState('');
   const [isBooting, setIsBooting] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  /**
+   * 送信直後のクールダウン（連打対策）。
+   * AIの応答は最大15秒かかるため、返事が来ないと感じた顧客が
+   * 何度も送信ボタンを押しやすい。押した分だけGemini APIを消費し、
+   * 同じ質問が会話に並んでオペレーターの確認も煩雑になる。
+   */
+  const [cooldown, setCooldown] = useState(false);
   const [escalated, setEscalated] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
 
@@ -94,6 +105,7 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
         setInitialMessages(result.data.messages);
         setIsBusinessHours(result.data.isBusinessHours);
         setHoursStart(result.data.hoursStart);
+        setTimezone(result.data.timezone);
         setEscalated(result.data.status !== 'ai_handling');
         // conversationId を最後に入れることで、履歴を反映してから購読が始まる
         setConversationId(result.data.conversationId);
@@ -120,7 +132,7 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
 
   async function handleSend() {
     const text = input.trim();
-    if (!text || !conversationId || isSending) return;
+    if (!text || !conversationId || isSending || cooldown) return;
 
     setErrorText(null);
     setIsSending(true);
@@ -151,8 +163,18 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
       setErrorText('送信に失敗しました。もう一度お試しください。');
     } finally {
       setIsSending(false);
+      // 送信の成否にかかわらずクールダウンに入る。
+      // 失敗時こそ焦って連打されやすいため、成功時だけにしない
+      setCooldown(true);
     }
   }
+
+  // クールダウンの解除。アンマウント時にタイマーを片付ける
+  useEffect(() => {
+    if (!cooldown) return;
+    const timer = setTimeout(() => setCooldown(false), COOLDOWN_MS);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     // Enterで送信、Shift+Enterで改行。日本語入力の変換確定Enterで
@@ -164,7 +186,7 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
   }
 
   const canSend = Boolean(
-    input.trim() && conversationId && !isSending && !isBooting
+    input.trim() && conversationId && !isSending && !isBooting && !cooldown
   );
 
   return (
@@ -215,11 +237,19 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
             senderType={m.sender_type}
             content={m.content}
             createdAt={m.created_at}
+            timezone={timezone}
           />
         ))}
 
         {isSending && <TypingIndicator />}
-        {escalated && <EscalationNotice afterHours={!isBusinessHours} />}
+
+        {/* 引き継ぎ通知は担当者の返信が入るまでの間だけ出す。
+            出しっぱなしにすると、担当者の返信より下に居座って
+            時系列が逆転して見えるため */}
+        {escalated && !messages.some((m) => m.sender_type === 'operator') && (
+          <EscalationNotice afterHours={!isBusinessHours} />
+        )}
+
         {errorText && <ErrorNotice message={errorText} />}
 
         <div ref={bottomRef} />
@@ -250,7 +280,9 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <p className="mt-1.5 px-1 text-[11px] text-brand-secondary/70">
-          Enterで送信 / Shift+Enterで改行
+          {cooldown && !isSending
+            ? '送信しました。次の送信まで少しお待ちください'
+            : 'Enterで送信 / Shift+Enterで改行'}
         </p>
       </div>
     </div>

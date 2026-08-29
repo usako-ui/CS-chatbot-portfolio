@@ -12,6 +12,8 @@ interface MessageBubbleProps {
   senderType: SenderType;
   content: string;
   createdAt: string;
+  /** 営業設定のタイムゾーン。判定側と表示側で食い違わないよう受け取る */
+  timezone: string;
 }
 
 /** 送信者ごとの見た目。追加するときはここだけ触れば済むようまとめている */
@@ -37,20 +39,29 @@ const SENDER_STYLE: Record<
 };
 
 /** HH:MM 形式。日付は会話が短時間で完結する前提のため省く */
-function formatTime(iso: string): string {
+function formatTime(iso: string, timeZone: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return new Intl.DateTimeFormat('ja-JP', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Asia/Tokyo',
-  }).format(d);
+  try {
+    return new Intl.DateTimeFormat('ja-JP', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone,
+    }).format(d);
+  } catch {
+    // 設定に不正なタイムゾーン名が入っていても時刻表示だけで画面を壊さない
+    return new Intl.DateTimeFormat('ja-JP', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(d);
+  }
 }
 
 export function MessageBubble({
   senderType,
   content,
   createdAt,
+  timezone,
 }: MessageBubbleProps) {
   const style = SENDER_STYLE[senderType];
   const isCustomer = senderType === 'customer';
@@ -77,7 +88,7 @@ export function MessageBubble({
         dateTime={createdAt}
         className="px-1 text-[11px] text-brand-secondary/70"
       >
-        {formatTime(createdAt)}
+        {formatTime(createdAt, timezone)}
       </time>
     </div>
   );
