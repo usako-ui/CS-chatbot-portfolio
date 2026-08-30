@@ -3,14 +3,14 @@ import { Noto_Sans_JP } from 'next/font/google';
 import './globals.css';
 
 /**
- * Noto Sans JP（Q-010 確定・FR-CUS-011）
+ * Noto Sans JP（Q-010 確定）
  *
  * next/font/google はビルド時にフォントを自己ホストする。
  * Google のCDNへ実行時アクセスしないため、表示のちらつき（FOUT）が出ず、
- * 顧客のIPがGoogleに渡ることもない。
+ * 利用者のIPがGoogleに渡ることもない。
  *
  * CSS変数として出し、tailwind.config.ts の fontFamily.sans から参照する。
- * display:'swap' は、フォント読み込み中も代替フォントで文字を表示させる指定。
+ * display:'swap' は読み込み中も代替フォントで文字を表示させる指定。
  * これがないと読み込み完了まで本文が空白になる。
  */
 const notoSansJP = Noto_Sans_JP({
@@ -22,8 +22,7 @@ const notoSansJP = Noto_Sans_JP({
 
 export const metadata: Metadata = {
   title: 'BOTANICA カスタマーサポート',
-  description:
-    'BOTANICAのカスタマーサポートです。在庫・配送・返品などのご質問にAIがお答えします。',
+  description: 'BOTANICA カスタマーサポート管理画面',
 };
 
 export default function RootLayout({
