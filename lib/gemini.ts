@@ -3,7 +3,8 @@
  *
  * このファイルは「Geminiを安全に呼んで、必ず AIResponse 型で返す」ことだけを担当する。
  * プロンプトの組み立て・FAQの埋め込み・エスカレーション後のDB更新は
- * actions/ai.ts（T-12・T-13）側の責務。ここに業務ロジックを持ち込まないこと。
+ * lib/aiReply.ts・actions/chat.ts（T-12・T-13）側の責務。
+ * ここに業務ロジックを持ち込まないこと。
  *
  * 【設計の前提】
  * AIが答えられない・落ちた場合は「オペレーターに引き継ぐ」が常に正解になる。
@@ -31,6 +32,18 @@ export const GEMINI_MODEL = 'gemini-2.5-flash';
  * これを超えたら待たせ続けるより即オペレーターへ回したほうが顧客体験がよい（AI-009）。
  */
 export const GEMINI_TIMEOUT_MS = 15_000;
+
+/**
+ * Gemini に渡す会話の1ターン。
+ *
+ * Gemini のロールは 'user' と 'model' の2種類のみ。
+ * オペレーターの発言に対応するロールが無いため、
+ * 履歴を組み立てる側（lib/aiReply.ts）で除外している。
+ */
+export interface AiTurn {
+  role: 'user' | 'model';
+  text: string;
+}
 
 /**
  * 出力トークン上限。
@@ -122,13 +135,15 @@ function isAIResponse(value: unknown): value is AIResponse {
 /**
  * システムプロンプトと顧客メッセージを渡して、構造化された回答を1件生成する。
  *
- * @param systemInstruction FAQを埋め込んだ確定版システムプロンプト（actions/ai.ts が組み立てる）
+ * @param systemInstruction FAQを埋め込んだ確定版システムプロンプト
  * @param userMessage       顧客が送信したメッセージ本文
+ * @param history           直近のやり取り（古い順）。省略時は単発の一問一答になる
  * @throws {GeminiError} タイムアウト・API障害・パース失敗・回答拒否のいずれか
  */
 export async function generateAIResponse(
   systemInstruction: string,
-  userMessage: string
+  userMessage: string,
+  history: AiTurn[] = []
 ): Promise<AIResponse> {
   // AbortController でタイムアウトを制御する。
   // SDK 側の待機を打ち切るためのもので、API課金自体は止まらない点に注意。
@@ -140,7 +155,16 @@ export async function generateAIResponse(
   try {
     const response = await getClient().models.generateContent({
       model: GEMINI_MODEL,
-      contents: userMessage,
+      // 履歴 + 今回の発言。履歴が空なら従来どおり単発の一問一答になる。
+      // Gemini のロールは 'user'（顧客）と 'model'（AI）の2種類しかないため、
+      // 呼び出し側で operator の発言を除外しておく必要がある
+      contents: [
+        ...history.map((turn) => ({
+          role: turn.role,
+          parts: [{ text: turn.text }],
+        })),
+        { role: 'user' as const, parts: [{ text: userMessage }] },
+      ],
       config: {
         systemInstruction,
         responseMimeType: 'application/json',

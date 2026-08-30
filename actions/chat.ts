@@ -11,13 +11,14 @@
  */
 'use server';
 
-import { resolveAiReply } from '@/lib/aiReply';
+import { buildAiHistory, resolveAiReply } from '@/lib/aiReply';
 import {
   buildAfterHoursNotice,
   getBusinessHoursStatus,
 } from '@/lib/businessHours';
 import {
   insertMessage,
+  listRecentAiMessages,
   requireOwnedConversation,
   setConversationStatus,
 } from '@/lib/conversations';
@@ -72,6 +73,12 @@ export async function sendCustomerMessage(
     };
   }
 
+  // ---- AIに渡す履歴を先に取得する ----
+  // 顧客メッセージを保存する「前」に取るのが重要。
+  // 保存後だと今回の発言が履歴にも入り、同じ文がAIへ二重に渡る。
+  // 直近5往復（顧客+AI で10件）だけ渡す。
+  const history = buildAiHistory(await listRecentAiMessages(conversationId, 10));
+
   // ---- 顧客メッセージの保存 ----
   // ここで失敗したら以降は進めない。AIだけ動いて顧客の発言が残らない状態を避けるため、
   // 必ず保存を先に確定させる（AC-009：全メッセージがDBに残ること）。
@@ -94,7 +101,7 @@ export async function sendCustomerMessage(
 
   // ---- AI応答 ----
   // resolveAiReply は例外を投げない。失敗時もエスカレーション結果が返る。
-  const aiResponse = await resolveAiReply(message);
+  const aiResponse = await resolveAiReply(message, history);
 
   // 営業時間の判定はエスカレーション時のみ必要だが、
   // 判定自体がDBアクセス1回で軽く、UIが常に afterHours を参照できるほうが扱いやすい。
