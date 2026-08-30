@@ -9,7 +9,7 @@
 import 'server-only';
 
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import type { ConversationStatus, SenderType } from '@/types';
+import type { ConversationStatus, Message, SenderType } from '@/types';
 
 /** DBの status は TEXT 型のため、型定義側の4種と一致するか実際に確認する */
 const CONVERSATION_STATUSES: readonly ConversationStatus[] = [
@@ -90,8 +90,9 @@ export async function insertMessage(
 /**
  * 会話のステータスを更新する。
  *
- * updated_at を明示的に入れているのは、管理画面の一覧を
- * 「最終更新が新しい順」で並べるため（DBにトリガーを置いていない）。
+ * updated_at は BEFORE UPDATE トリガー（trg_conversations_updated_at）が
+ * NOW() で自動設定するため、ここでの明示的な指定は冗長。
+ * 害は無いので保険として残している（トリガーが後から外れても並び順が壊れない）。
  *
  * @param assignedOperatorId 指定すると担当者も同時にセットする（Q-001の自動割り当て）
  */
@@ -118,4 +119,40 @@ export async function setConversationStatus(
   if (error) {
     throw new Error(`会話ステータスの更新に失敗しました: ${error.message}`);
   }
+}
+
+/**
+ * AIに渡す直近のやり取りを取得する（T-12・フォローアップ質問対応）。
+ *
+ * 全件ではなく直近だけを取るのは、会話が長くなってもトークンと
+ * クエリ量を一定に保つため。表示用の全件取得とは目的が違う。
+ *
+ * DB側で customer / ai に絞っているのは、
+ * オペレーターの発言が多い会話でも顧客とAIのやり取りを必要数確保するため。
+ * （limit をかけたあとにアプリ側で除外すると、件数が足りなくなる）
+ *
+ * @param limit 取得する最大件数（顧客+AI の合計）
+ * @returns 古い順。取得に失敗した場合は空配列（履歴が無くてもAIは動く）
+ */
+export async function listRecentAiMessages(
+  conversationId: string,
+  limit: number
+): Promise<Pick<Message, 'sender_type' | 'content'>[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('messages')
+    .select('sender_type, content')
+    .eq('conversation_id', conversationId)
+    .in('sender_type', ['customer', 'ai'])
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    // 履歴が取れなくてもAIは単発で回答できる。
+    // ここで例外を投げると、文脈が無いだけの状況で会話全体が止まってしまう
+    console.error('[listRecentAiMessages] 履歴の取得に失敗:', error);
+    return [];
+  }
+
+  // 新しい順で取っているので、AIに渡す前に古い順へ戻す
+  return (data ?? []).reverse() as Pick<Message, 'sender_type' | 'content'>[];
 }
