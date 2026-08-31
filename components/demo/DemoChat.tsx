@@ -257,8 +257,13 @@ export function DemoChat() {
 
             <p className="mt-5 flex items-start gap-1.5 text-[12px] leading-relaxed text-brand-night-muted">
               <InfoIcon size={14} className="mt-0.5 shrink-0" />
-              ダミーFAQ18件を根拠に回答します。会話は保存されず、リロードで消えます。
-              実際の個人情報は入力しないでください。
+              <span>
+                ダミーFAQ18件を根拠に回答します。
+                <br />
+                会話は保存されず、リロードで消えます。
+                <br />
+                実際の個人情報は入力しないでください。
+              </span>
             </p>
           </>
         ) : (

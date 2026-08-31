@@ -248,7 +248,7 @@ export default function Home() {
 
             <p className="mt-12 text-center text-[13px] leading-relaxed text-brand-night-muted">
               営業時間外に引き継ぎが発生した場合は、翌営業日に担当者が対応する旨を顧客へ案内します。
-              <br className="hidden sm:block" />
+              <br />
               引き継ぎ後もAIとのやり取りは管理画面にそのまま残ります。
             </p>
           </div>
@@ -260,6 +260,7 @@ export default function Home() {
             <h2 className="text-center text-2xl font-bold sm:text-3xl">デモを試す</h2>
             <p className="mx-auto mt-4 max-w-2xl text-center text-[14px] leading-relaxed text-brand-night-muted">
               ご自身のGemini APIキーを入力してチャットを体験できます。
+              <br />
               FAQにある質問はAIが即答し、FAQ外の質問は担当者への引き継ぎ判定になります。
             </p>
 
@@ -268,7 +269,9 @@ export default function Home() {
             </div>
 
             <p className="mt-6 text-center text-[12px] text-brand-night-muted">
-              ダミーFAQ18件・テストシナリオ8件で動作確認済み。実運用時は実際のFAQデータでの検証を推奨します。
+              ダミーFAQ18件・テストシナリオ8件で動作確認済み。
+              <br />
+              実運用時は実際のFAQデータでの検証を推奨します。
             </p>
           </div>
         </section>
@@ -326,8 +329,10 @@ export default function Home() {
             <h2 className="text-2xl font-bold sm:text-3xl">開発者</h2>
 
             <p className="mt-7 text-[18px] font-bold">Misako</p>
-            <p className="mx-auto mt-3 max-w-xl text-[14px] leading-relaxed text-brand-night-muted">
+            {/* 句点の途中で折り返らないよう、1文ずつ改行する */}
+            <p className="mx-auto mt-3 max-w-2xl text-[14px] leading-relaxed text-brand-night-muted">
               業務フローを一緒に整理しながら、小さく作って実運用で育てるシステム開発をしています。
+              <br />
               個人フリーランス・小規模事業者の方のご相談歓迎です。
             </p>
 
@@ -357,8 +362,11 @@ export default function Home() {
             {/* 開発背景の説明。架空ブランド名に触れてよいのはここだけ */}
             <p className="mx-auto mt-10 max-w-xl text-[12px] leading-relaxed text-brand-night-muted/80">
               本プロジェクトはポートフォリオ用の模擬案件です。
+              <br />
               架空のD2CブランドBOTANICAを想定して開発しました。
+              <br />
               実データでの導入検討時は別途ご相談ください。
+              <br />
               記載の数値はいずれも設計上の想定値であり、実運用の実績ではありません。
             </p>
           </div>
