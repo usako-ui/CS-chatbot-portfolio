@@ -115,7 +115,10 @@ let cached: GoogleGenAI | null = null;
  * GEMINI_API_KEY 未設定でアプリ全体が起動不能になるのを避けるため。
  * AI機能を使った瞬間にだけ、原因が分かるエラーで落ちる。
  */
-function getClient(): GoogleGenAI {
+function getClient(apiKey?: string): GoogleGenAI {
+  // デモモードは利用者が自分のキーを持ち込むため、キャッシュしてはいけない。
+  // キャッシュすると次の利用者の呼び出しに前の人のキーを使ってしまう。
+  if (apiKey) return new GoogleGenAI({ apiKey });
   if (cached) return cached;
   cached = new GoogleGenAI({ apiKey: getGeminiApiKey() });
   return cached;
@@ -138,12 +141,16 @@ function isAIResponse(value: unknown): value is AIResponse {
  * @param systemInstruction FAQを埋め込んだ確定版システムプロンプト
  * @param userMessage       顧客が送信したメッセージ本文
  * @param history           直近のやり取り（古い順）。省略時は単発の一問一答になる
+ * @param apiKey            利用者が持ち込むAPIキー（デモモード用）。
+ *                          省略時は環境変数の GEMINI_API_KEY を使う。
+ *                          ログに出さないこと（この関数もエラーメッセージに含めない）
  * @throws {GeminiError} タイムアウト・API障害・パース失敗・回答拒否のいずれか
  */
 export async function generateAIResponse(
   systemInstruction: string,
   userMessage: string,
-  history: AiTurn[] = []
+  history: AiTurn[] = [],
+  apiKey?: string
 ): Promise<AIResponse> {
   // AbortController でタイムアウトを制御する。
   // SDK 側の待機を打ち切るためのもので、API課金自体は止まらない点に注意。
@@ -153,7 +160,7 @@ export async function generateAIResponse(
   let text: string | undefined;
 
   try {
-    const response = await getClient().models.generateContent({
+    const response = await getClient(apiKey).models.generateContent({
       model: GEMINI_MODEL,
       // 履歴 + 今回の発言。履歴が空なら従来どおり単発の一問一答になる。
       // Gemini のロールは 'user'（顧客）と 'model'（AI）の2種類しかないため、

@@ -23,10 +23,44 @@ const config: Config = {
           text: 'var(--color-text)',           // テキスト #1B4332
           sand: 'var(--color-sand)',           // 背景サンド #FAF7F2
           sidebar: 'var(--color-sidebar)',     // サイドバー #3D7A65
+          // ランディングページのダーク面（/chat・管理画面では使わない）
+          night: {
+            DEFAULT: 'var(--color-night)',      // 背景ダーク #0F1F17
+            card: 'var(--color-night-card)',    // カード背景 #1A2E20
+            line: 'var(--color-night-line)',    // 罫線 #24402F
+            text: 'var(--color-night-text)',    // テキスト白 #F0FAF4
+            muted: 'var(--color-night-muted)',  // テキスト薄 #8FA9BD
+            accent: 'var(--color-night-accent)', // アクセント #5EEAD4
+            'accent-soft': 'var(--color-night-accent-soft)', // #2DD4BF
+          },
         },
       },
       fontFamily: {
         sans: ['var(--font-noto-sans-jp)', 'sans-serif'],
+      },
+      /*
+       * ランディングのモック画面用アニメーション。
+       * 実際に人が触っているように見せるための演出であり、
+       * 動きを減らす設定の利用者には motion-reduce: で止める。
+       */
+      keyframes: {
+        'caret-blink': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0' },
+        },
+        'bubble-in': {
+          '0%': { opacity: '0', transform: 'translateY(6px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'row-in': {
+          '0%': { opacity: '0', transform: 'translateY(-8px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        'caret-blink': 'caret-blink 1s steps(1, end) infinite',
+        'bubble-in': 'bubble-in 320ms ease-out',
+        'row-in': 'row-in 420ms ease-out',
       },
     },
   },

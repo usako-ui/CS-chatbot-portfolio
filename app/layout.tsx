@@ -32,7 +32,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     // lang="ja" は日本語の折り返し・読み上げの精度に影響するため必ず指定する
-    <html lang="ja" className={notoSansJP.variable}>
+    <html lang="ja" className={`${notoSansJP.variable} scroll-smooth`}>
       <body className="font-sans antialiased">{children}</body>
     </html>
   );

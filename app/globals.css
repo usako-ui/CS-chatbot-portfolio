@@ -16,6 +16,21 @@
   --color-text: #1b4332;
   --color-sand: #faf7f2;
   --color-sidebar: #3d7a65;
+
+  /*
+   * ランディングページ専用のダーク面。
+   * 顧客チャット（/chat）と管理画面は従来どおり明るい面を使うため、
+   * 既存トークンは変更せずここに追加している。
+   */
+  --color-night: #060f1c;
+  --color-night-card: #0f1e2e;
+  --color-night-line: #1c3348;
+  --color-night-text: #f0f7fa;
+  --color-night-muted: #8fa9bd;
+  /* ランディング上のアクセント。ブランドの淡いグリーンより彩度を上げ、
+     ダーク面でも見出し・CTA・アイコンがはっきり立つようにする */
+  --color-night-accent: #5eead4;
+  --color-night-accent-soft: #2dd4bf;
 }
 
 body {

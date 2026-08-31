@@ -208,3 +208,41 @@ export function MenuIcon({ size = 20, ...rest }: IconProps) {
     </svg>
   );
 }
+
+/** 右矢印：フロー図・CTAの導線。絵文字や記号文字を使わないため線で描く */
+export function ArrowRightIcon({ size = 20, ...rest }: IconProps) {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M4 12h15M13 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+/** 盾：セキュリティ・データ保護 */
+export function ShieldIcon({ size = 20, ...rest }: IconProps) {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M12 3l7 3v5.5c0 4.3-2.9 7.6-7 9.5-4.1-1.9-7-5.2-7-9.5V6z" />
+      <path d="M9 12l2 2 4-4" />
+    </svg>
+  );
+}
+
+/** 月：夜間・営業時間外 */
+export function MoonIcon({ size = 20, ...rest }: IconProps) {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" />
+    </svg>
+  );
+}
+
+/** 層：スケーラブルな構成 */
+export function LayersIcon({ size = 20, ...rest }: IconProps) {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M12 3l9 5-9 5-9-5z" />
+      <path d="M3 13l9 5 9-5" />
+    </svg>
+  );
+}

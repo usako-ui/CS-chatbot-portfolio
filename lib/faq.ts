@@ -10,7 +10,11 @@
  */
 import 'server-only';
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { getSupabaseAnon } from '@/lib/supabase/anon';
+import type { Database } from '@/types/database';
 import type { FAQ, FAQCategory } from '@/types';
 
 /**
@@ -57,7 +61,28 @@ function toFAQ(row: {
  * @throws DB接続・クエリに失敗した場合。呼び出し側はエスカレーションへ倒す
  */
 export async function getActiveFaqs(): Promise<FAQ[]> {
-  const { data, error } = await getSupabaseAdmin()
+  return fetchActiveFaqs(getSupabaseAdmin());
+}
+
+/**
+ * 有効なFAQを anon 権限で全件取得する（デモモード専用）。
+ *
+ * デモは認証を通さない導線のため service_role を使わない。
+ * FAQ は RLS で anon に読み取りだけ許可されている公開情報であり、
+ * 万一ここを書き間違えても RLS が最後の砦として効く。
+ *
+ * @throws DB接続・クエリに失敗した場合。呼び出し側はエスカレーションへ倒す
+ */
+export async function getActiveFaqsForDemo(): Promise<FAQ[]> {
+  return fetchActiveFaqs(getSupabaseAnon());
+}
+
+/**
+ * FAQ取得の実体。権限だけが違う2経路で同じクエリ・同じ検証を通すために共有する。
+ * 片方だけ条件が変わると「本番では出るのにデモでは出ない」ズレが生まれるため。
+ */
+async function fetchActiveFaqs(client: SupabaseClient<Database>): Promise<FAQ[]> {
+  const { data, error } = await client
     .from('faqs')
     .select('id, category, question, answer, is_active')
     .eq('is_active', true)

@@ -68,6 +68,19 @@ export interface FAQ {
  * Gemini からの構造化レスポンス
  * responseSchema でこの形を強制する。パース失敗時は即エスカレーションに倒す。
  */
+/**
+ * デモモードでAIに渡す会話1ターン。
+ *
+ * lib/gemini.ts の AiTurn と同じ形だが、あちらは 'server-only' のため
+ * クライアントコンポーネントから参照できない。デモの入力は
+ * クライアントが組み立ててServer Actionへ渡すので、型はここに置く。
+ */
+export interface DemoTurn {
+  /** 'user' が体験者の発言、'model' がAIの発言 */
+  role: 'user' | 'model';
+  text: string;
+}
+
 export interface AIResponse {
   /** 回答本文。escalate が true のときは空文字 */
   answer: string;
