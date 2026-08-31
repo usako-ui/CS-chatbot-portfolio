@@ -179,7 +179,10 @@ export async function generateAIResponse(
         maxOutputTokens: MAX_OUTPUT_TOKENS,
         // 事実の言い換えを最小限にするため低めに固定する。
         // 高いとFAQにない表現を足しやすくなり、AI-005（ハルシネーション抑制）に反する。
-        temperature: 0.2,
+        // 0.2 では同じ質問でエスカレーション判定がぶれたため 0.1 まで下げた
+        // （検証シナリオ #3「届いた商品が壊れていました」が実行ごとに割れた）。
+        // 0 にしないのは、完全な貪欲法だと定型文が硬くなりやすいため。
+        temperature: 0.1,
         // 2.5 Flash は既定で思考トークンを使い応答が遅くなる。
         // FAQ参照の一問一答に推論は不要なため無効化し、15秒の枠内に収める。
         thinkingConfig: { thinkingBudget: 0 },

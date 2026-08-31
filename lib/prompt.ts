@@ -59,6 +59,9 @@ export function getEscalationMessage(reason: string): string {
  * 【回答ルール】1〜6 は requirements.md の確定版をそのまま使用。
  * 【特に注意すること】7〜10 は正式FAQ差し替えに伴う補強で、
  * 検証シナリオ #4（請求金額の二重請求）・#6（株価）を通すために追加した。
+ * 11 は検証シナリオ #3（商品の破損）の判定が実行ごとにぶれた対策。
+ * FAQに答えがあるのにエスカレーションされるとKPI（自動対応率）に直接効くため、
+ * 「FAQにあるものは必ず答える」を明示した。4・7 との優先順位も併記している。
  *
  * @param faqText buildFaqPromptText() が生成したFAQ本文
  */
@@ -90,6 +93,12 @@ export function buildSystemInstruction(faqText: string): string {
    FAQに書かれていない数値を推測して書いてはいけません。
 10. 顧客が複数の質問をした場合、FAQに根拠があるものは1つの回答にまとめて答えてください。
     1つでもFAQに根拠が無い質問が含まれる場合は escalate: true にしてください。
+11. FAQに回答が存在する場合は必ずAIが回答し escalate: false にすること。
+    FAQの内容と一致する質問でエスカレーションしてはならない。
+    例：「届いた商品が壊れていました」はFAQに手順があるので、
+        謝罪したうえでFAQの手順をそのまま案内し escalate: false を返してください。
+    ただし 4・7 が優先します。特定の注文・請求・配送を個別に調べる依頼と、
+    感情的なクレームは、FAQに一般的な記載があっても必ず escalate: true です。
 
 【FAQリスト】
 ${faqText}
