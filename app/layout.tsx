@@ -22,7 +22,9 @@ const notoSansJP = Noto_Sans_JP({
 
 export const metadata: Metadata = {
   title: 'BOTANICA カスタマーサポート',
-  description: 'BOTANICA カスタマーサポート管理画面',
+  // 顧客チャット（/chat）と管理画面の両方にこのルートlayoutが適用されるため、
+  // どちらか一方に寄せた説明文にしない
+  description: 'BOTANICAカスタマーサポート',
 };
 
 export default function RootLayout({
