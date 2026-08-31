@@ -23,7 +23,9 @@ import {
   listRecentAiMessages,
   requireOwnedConversation,
   setConversationStatus,
+  setPendingHandoff,
 } from '@/lib/conversations';
+import { HANDOFF_OFFER_TEXT } from '@/lib/prompt';
 import { requireCustomerId } from '@/lib/supabase/server';
 import { validateMessageText } from '@/lib/validation';
 import type {
@@ -38,6 +40,11 @@ export interface SendMessageResult {
   aiMessage: string | null;
   /** true ならこの往復でオペレーターへ引き継いだ */
   escalated: boolean;
+  /**
+   * true なら「FAQを案内したうえで担当者を提案した」状態。
+   * ステータスはまだ ai_handling のままで、顧客の選択を待っている。
+   */
+  pendingHandoff: boolean;
   /** 営業時間外だったか。UIの案内表示に使う */
   afterHours: boolean;
 }
@@ -107,7 +114,12 @@ export async function sendCustomerMessage(
     const { isOpen } = await getBusinessHoursStatus();
     return {
       success: true,
-      data: { aiMessage: null, escalated: false, afterHours: !isOpen },
+      data: {
+        aiMessage: null,
+        escalated: false,
+        pendingHandoff: false,
+        afterHours: !isOpen,
+      },
     };
   }
 
@@ -122,9 +134,13 @@ export async function sendCustomerMessage(
 
   // 時間外は「翌営業日に対応する」ことまで伝える（FR-TIME-004・FR-CUS-006）。
   // 伝えないと、顧客が深夜に返信を待ち続けることになる。
+  const isEscalated = aiResponse.action === 'escalate';
+  const isHandoffOffer = aiResponse.action === 'handoff_offer';
+
   const aiMessage =
-    aiResponse.escalate && afterHours
-      ? `${aiResponse.answer}\n${buildAfterHoursNotice(hoursStart)}`
+    isEscalated && afterHours
+      ? `${aiResponse.answer}
+${buildAfterHoursNotice(hoursStart)}`
       : aiResponse.answer;
 
   // ---- AIメッセージの保存 ----
@@ -140,7 +156,7 @@ export async function sendCustomerMessage(
   // ---- エスカレーション（T-13）----
   // 時間内でも時間外でも waiting_operator に変更する。
   // 時間外は「即時通知しないだけ」でステータスは保持する（FR-TIME-002・003）。
-  if (aiResponse.escalate) {
+  if (isEscalated) {
     try {
       await setConversationStatus(conversationId, 'waiting_operator');
     } catch (error) {
@@ -150,10 +166,117 @@ export async function sendCustomerMessage(
     }
   }
 
+  // ---- 引き継ぎの提案（ソフトエスカレーション）----
+  // ステータスは ai_handling のまま。担当者につなぐかは顧客が選ぶ。
+  //
+  // 選択待ちフラグは毎回上書きする。false へ戻す処理をここに集約することで、
+  // 顧客が選択肢を押さずに次の質問を送った場合も古い提案が残らない。
+  try {
+    await setPendingHandoff(conversationId, isHandoffOffer);
+  } catch (error) {
+    // 失敗しても会話自体は成立する。選択肢が出ない／残るだけなのでログに留める
+    console.error('[sendCustomerMessage] 引き継ぎ提案の状態更新失敗:', error);
+  }
+
   return {
     success: true,
-    data: { aiMessage, escalated: aiResponse.escalate, afterHours },
+    data: {
+      aiMessage,
+      escalated: isEscalated,
+      pendingHandoff: isHandoffOffer,
+      afterHours,
+    },
   };
+}
+
+/**
+ * 顧客が「担当者へつなぐ」を選んだときの処理。
+ *
+ * AIがFAQを案内したうえで提案した引き継ぎを、顧客が受け入れた場合に呼ぶ。
+ *
+ * 【引数を信用しないこと】
+ * この処理は service_role で動くため RLS が効かない。
+ * 本人確認と所有権の突合を必ず通す。加えて「選択待ちの会話か」も確認する。
+ * これが無いと、完了済みの会話や既に引き継いだ会話を
+ * 外部から waiting_operator に戻せてしまう。
+ */
+export async function requestOperatorHandoff(
+  conversationId: string
+): Promise<ActionResult<{ afterHours: boolean }>> {
+  let conversation;
+  try {
+    const customerUserId = await requireCustomerId();
+    conversation = await requireOwnedConversation(conversationId, customerUserId);
+  } catch (error) {
+    console.error('[requestOperatorHandoff] 認証・所有権チェック失敗:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'アクセスが拒否されました。',
+    };
+  }
+
+  // 選択待ちでない会話を引き継ぎ状態にしない（二重押し・改ざん対策）
+  if (conversation.status !== 'ai_handling' || !conversation.pendingHandoff) {
+    return {
+      success: false,
+      error: 'この操作は受け付けられません。画面を再読み込みしてください。',
+    };
+  }
+
+  const { isOpen, hoursStart } = await getBusinessHoursStatus();
+  const afterHours = !isOpen;
+
+  // 顧客が自分で引き継ぎを選んだ事実を履歴に残す。
+  // これが無いと、オペレーターは会話を見ても
+  // 「AIが案内した後になぜ引き継がれたか」が分からない（AC-013）。
+  const handoffMessage = afterHours
+    ? `担当者にお繋ぎします。
+${buildAfterHoursNotice(hoursStart)}`
+    : '担当者にお繋ぎします。少々お待ちください。';
+
+  try {
+    await insertMessage(conversationId, 'ai', handoffMessage);
+  } catch (error) {
+    // 記録に失敗しても引き継ぎ自体は成立させる。顧客を待たせないことを優先する
+    console.error('[requestOperatorHandoff] 引き継ぎメッセージの保存失敗:', error);
+  }
+
+  try {
+    await setConversationStatus(conversationId, 'waiting_operator');
+    await setPendingHandoff(conversationId, false);
+  } catch (error) {
+    // ここが失敗すると管理画面に上がらず放置される。最も重い失敗
+    console.error('[requestOperatorHandoff] ステータス更新失敗:', error);
+    return {
+      success: false,
+      error: '担当者へのお繋ぎに失敗しました。もう一度お試しください。',
+    };
+  }
+
+  return { success: true, data: { afterHours } };
+}
+
+/**
+ * 顧客が「続けて質問する」を選んだときの処理。
+ *
+ * 選択待ちを解除するだけで、ステータスも会話履歴も変えない。
+ * AIの案内文はそのまま残り、続けて質問できる。
+ */
+export async function dismissHandoffOffer(
+  conversationId: string
+): Promise<ActionResult<void>> {
+  try {
+    const customerUserId = await requireCustomerId();
+    await requireOwnedConversation(conversationId, customerUserId);
+    await setPendingHandoff(conversationId, false);
+    return { success: true };
+  } catch (error) {
+    console.error('[dismissHandoffOffer] 選択待ちの解除に失敗:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '操作に失敗しました。',
+    };
+  }
 }
 
 /** ウィジェット起動時に返す初期状態（T-18） */
@@ -162,6 +285,12 @@ export interface ConversationBootstrap {
   status: ConversationStatus;
   /** 継続会話の場合は過去のやり取り。新規なら空配列（AC-014：履歴の保持） */
   messages: Message[];
+  /**
+   * AIがFAQ案内後に担当者を提案し、顧客の選択を待っている状態。
+   * React の state ではなくサーバーから返すのは、
+   * リロードしても選択肢が復元されるようにするため（AC-014）。
+   */
+  pendingHandoff: boolean;
   /** 営業時間内か。時間外バナーの出し分けに使う（FR-CUS-006） */
   isBusinessHours: boolean;
   /** 翌営業日の開始時刻。時間外案内の文面に使う */
@@ -210,6 +339,7 @@ export async function createOrGetConversation(): Promise<
         conversationId: conversation.id,
         status: conversation.status,
         messages,
+        pendingHandoff: conversation.pendingHandoff,
         isBusinessHours: isOpen,
         hoursStart,
         timezone,

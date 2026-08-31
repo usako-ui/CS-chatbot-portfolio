@@ -27,6 +27,8 @@ function isConversationStatus(value: string): value is ConversationStatus {
 export interface OwnedConversation {
   id: string;
   status: ConversationStatus;
+  /** AIがFAQ案内後に担当者を提案し、顧客の選択を待っている状態 */
+  pendingHandoff: boolean;
 }
 
 /**
@@ -42,7 +44,7 @@ export async function requireOwnedConversation(
 ): Promise<OwnedConversation> {
   const { data, error } = await getSupabaseAdmin()
     .from('conversations')
-    .select('id, status, customer_user_id')
+    .select('id, status, customer_user_id, pending_handoff')
     .eq('id', conversationId)
     .maybeSingle();
 
@@ -60,7 +62,7 @@ export async function requireOwnedConversation(
     throw new Error(`会話のステータスが不正です: ${data.status}`);
   }
 
-  return { id: data.id, status: data.status };
+  return { id: data.id, status: data.status, pendingHandoff: data.pending_handoff };
 }
 
 /**
@@ -193,7 +195,7 @@ export async function findOrCreateOpenConversation(
   // 継続対象を探す。複数残っていた場合は最新のものを使う
   const { data: existing, error: selectError } = await admin
     .from('conversations')
-    .select('id, status')
+    .select('id, status, pending_handoff')
     .eq('customer_user_id', customerUserId)
     .neq('status', 'closed')
     .order('created_at', { ascending: false })
@@ -205,13 +207,17 @@ export async function findOrCreateOpenConversation(
   }
 
   if (existing && isConversationStatus(existing.status)) {
-    return { id: existing.id, status: existing.status };
+    return {
+      id: existing.id,
+      status: existing.status,
+      pendingHandoff: existing.pending_handoff,
+    };
   }
 
   const { data: created, error: insertError } = await admin
     .from('conversations')
     .insert({ customer_user_id: customerUserId })
-    .select('id, status')
+    .select('id, status, pending_handoff')
     .single();
 
   if (insertError || !created) {
@@ -224,5 +230,34 @@ export async function findOrCreateOpenConversation(
     throw new Error(`会話のステータスが不正です: ${created.status}`);
   }
 
-  return { id: created.id, status: created.status };
+  return {
+    id: created.id,
+    status: created.status,
+    pendingHandoff: created.pending_handoff,
+  };
+}
+
+/**
+ * 引き継ぎ提案の選択待ちフラグを更新する。
+ *
+ * true にするのはAIが handoff_offer を返したときだけ。
+ * false に戻すのは次の3つ。
+ *   - 顧客が「担当者へつなぐ」を選んだ
+ *   - 顧客が「続けて質問する」を選んだ
+ *   - 顧客が次のメッセージを送った（新しい往復が古い提案を上書きする）
+ *
+ * 呼び出し側は事前に requireOwnedConversation() で所有権を確認すること。
+ */
+export async function setPendingHandoff(
+  conversationId: string,
+  pending: boolean
+): Promise<void> {
+  const { error } = await getSupabaseAdmin()
+    .from('conversations')
+    .update({ pending_handoff: pending })
+    .eq('id', conversationId);
+
+  if (error) {
+    throw new Error(`引き継ぎ提案の状態更新に失敗しました: ${error.message}`);
+  }
 }

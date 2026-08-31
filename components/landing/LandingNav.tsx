@@ -2,14 +2,14 @@
  * ランディングページの固定ヘッダー
  *
  * ロゴは架空クライアント名ではなくプロダクト名（AI CS Bot）を出す。
- * リンクはすべて同一ページ内のアンカー。ページ遷移を挟まないので
- * Link ではなく a を使う（Next.js の Link はアンカー移動に不要）。
+ * 「デモを試す」だけ別ページ（/demo-ec）へ遷移するので Link を使う。
+ * 残りは同一ページ内のアンカーなので a のままでよい。
  */
 import Link from 'next/link';
 import { BotIcon } from '@/components/icons';
 
 const NAV_LINKS = [
-  { href: '#demo', label: 'デモを試す' },
+  { href: '/demo-ec', label: 'デモを試す' },
   { href: '#features', label: '機能紹介' },
   { href: '#flow', label: '導入の流れ' },
   { href: '#tech', label: '技術スタック' },
@@ -32,24 +32,32 @@ export function LandingNav() {
         {/* 画面が狭いとリンクが折り返してヘッダーが2段になるため、
             狭い幅ではリンクを畳んでCTAだけ残す */}
         <ul className="hidden items-center gap-7 lg:flex">
-          {NAV_LINKS.map((l) => (
-            <li key={l.href}>
-              <a
-                href={l.href}
-                className="text-[14px] text-brand-night-muted transition-colors hover:text-brand-night-text"
-              >
-                {l.label}
-              </a>
-            </li>
-          ))}
+          {NAV_LINKS.map((l) => {
+            const className =
+              'text-[14px] text-brand-night-muted transition-colors hover:text-brand-night-text';
+            return (
+              <li key={l.href}>
+                {/* ページ内アンカーは a、別ページへの遷移は Link で先読みさせる */}
+                {l.href.startsWith('#') ? (
+                  <a href={l.href} className={className}>
+                    {l.label}
+                  </a>
+                ) : (
+                  <Link href={l.href} className={className}>
+                    {l.label}
+                  </Link>
+                )}
+              </li>
+            );
+          })}
         </ul>
 
-        <a
-          href="#demo"
+        <Link
+          href="/demo-ec"
           className="shrink-0 rounded-xl bg-brand-night-accent px-4 py-2 text-[14px] font-bold text-brand-night transition-opacity hover:opacity-90"
         >
           デモを試す
-        </a>
+        </Link>
       </nav>
     </header>
   );

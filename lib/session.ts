@@ -54,6 +54,10 @@ export function ensureAnonymousSession(): Promise<string> {
     } = await supabase.auth.getSession();
 
     if (session?.user) {
+      // ここでは有効性まで確認しない（getUser() はネットワークアクセスを伴い、
+      // 起動が毎回そのぶん遅くなるため）。
+      // Cookie が失効している場合は Server Action 側の auth.getUser() が弾くので、
+      // 呼び出し側が resetAnonymousSession() で作り直す。
       return session.user.id;
     }
 
@@ -77,4 +81,40 @@ export function ensureAnonymousSession(): Promise<string> {
   });
 
   return inFlight;
+}
+
+/**
+ * 匿名セッションを作り直す。
+ *
+ * 【必要になる場面】
+ * Cookie に残っている JWT が、Auth サーバー側ではもう有効でないことがある。
+ *   - 匿名ユーザーが削除された（検証データの掃除など）
+ *   - トークンが失効した
+ *
+ * getSession() は Cookie を読むだけなので、この状態でも「セッションあり」と判定する。
+ * その結果 Server Action の auth.getUser() で弾かれ、
+ * 「セッションを開始できませんでした」から再読み込みしても復帰できない詰みになる。
+ * （Cookie が残り続けるため、何度読み込んでも同じ結果になる）
+ *
+ * ここで古い Cookie を捨ててからサインインし直すことで自動復帰させる。
+ *
+ * signOut は scope: 'local' を指定する。既にサーバー側に無いセッションを
+ * ログアウトしようとして失敗すると、Cookie が消えず復帰できないため。
+ *
+ * @returns 作り直した顧客の auth.uid()
+ */
+export async function resetAnonymousSession(): Promise<string> {
+  // 進行中の共有プロミスを捨てる。残すと古い結果を返してしまう
+  inFlight = null;
+
+  const supabase = createClient();
+  try {
+    await supabase.auth.signOut({ scope: 'local' });
+  } catch (error) {
+    // Cookie を消せなくても、この後のサインインで上書きされる可能性がある。
+    // ここで止めるより先へ進めたほうが復帰の見込みが高い
+    console.error('[resetAnonymousSession] 古いセッションの破棄に失敗:', error);
+  }
+
+  return ensureAnonymousSession();
 }

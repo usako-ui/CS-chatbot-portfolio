@@ -2,8 +2,9 @@
  * ランディングページ（ポートフォリオ用）
  *
  * このアプリの入口。デモ体験と管理画面への導線を兼ねる。
- * 顧客チャットの動作確認用モックEC（/chat）と管理画面（/login）は
+ * 顧客チャットの動作確認用モックEC（/demo-ec）と管理画面（/login）は
  * 直接URLで従来どおりアクセスできる。
+ * 旧 /chat は next.config.mjs のリダイレクトで /demo-ec へ転送する。
  *
  * 【ブランド表記のルール・変更時は必ず守ること】
  * このページに架空クライアント名（BOTANICA）を出さない。
@@ -17,13 +18,12 @@
  *
  * 【配色】
  * このページだけ night トークン（ネイビー×シアンのダーク面）を使う。
- * /chat と管理画面は従来どおり明るいブランド面のままなので、
+ * /demo-ec と管理画面は従来どおり明るいブランド面のままなので、
  * globals.css の既存トークンは変更していない。
  * Hero の右に置くモック2枚だけは実装どおりの明るい配色にしてあり、
  * 「実際の画面のスクリーンショット」として読めるようにしている。
  */
 import Link from 'next/link';
-import { DemoChat } from '@/components/demo/DemoChat';
 import { LandingNav } from '@/components/landing/LandingNav';
 import { UiShowcase } from '@/components/landing/UiShowcase';
 import {
@@ -147,13 +147,13 @@ export default function Home() {
               </p>
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                <a
-                  href="#demo"
+                <Link
+                  href="/demo-ec"
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-night-accent px-7 py-3 text-[15px] font-bold text-brand-night transition-opacity hover:opacity-90 sm:w-auto"
                 >
                   デモを試す
                   <ArrowRightIcon size={17} />
-                </a>
+                </Link>
                 <Link
                   href="/login"
                   className="inline-flex w-full items-center justify-center rounded-xl border border-brand-night-line px-7 py-3 text-[15px] font-bold text-brand-night-text transition-colors hover:border-brand-night-accent/60 sm:w-auto"
@@ -161,6 +161,7 @@ export default function Home() {
                   管理画面を見る
                 </Link>
               </div>
+
 
               <ul className="mt-10 flex flex-col divide-y divide-brand-night-line overflow-hidden rounded-xl border border-brand-night-line bg-brand-night-card/70 sm:flex-row sm:divide-x sm:divide-y-0">
                 {HERO_STATS.map(({ Icon, value, label }) => (
@@ -250,28 +251,6 @@ export default function Home() {
               営業時間外に引き継ぎが発生した場合は、翌営業日に担当者が対応する旨を顧客へ案内します。
               <br />
               引き継ぎ後もAIとのやり取りは管理画面にそのまま残ります。
-            </p>
-          </div>
-        </section>
-
-        {/* ================= Demo ================= */}
-        <section id="demo" className="scroll-mt-20 px-5 py-16 sm:py-20">
-          <div className="mx-auto max-w-6xl">
-            <h2 className="text-center text-2xl font-bold sm:text-3xl">デモを試す</h2>
-            <p className="mx-auto mt-4 max-w-2xl text-center text-[14px] leading-relaxed text-brand-night-muted">
-              ご自身のGemini APIキーを入力してチャットを体験できます。
-              <br />
-              FAQにある質問はAIが即答し、FAQ外の質問は担当者への引き継ぎ判定になります。
-            </p>
-
-            <div className="mt-12">
-              <DemoChat />
-            </div>
-
-            <p className="mt-6 text-center text-[12px] text-brand-night-muted">
-              ダミーFAQ18件・テストシナリオ8件で動作確認済み。
-              <br />
-              実運用時は実際のFAQデータでの検証を推奨します。
             </p>
           </div>
         </section>

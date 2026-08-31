@@ -6,8 +6,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { createOrGetConversation, sendCustomerMessage } from '@/actions/chat';
+import {
+  createOrGetConversation,
+  dismissHandoffOffer,
+  requestOperatorHandoff,
+  sendCustomerMessage,
+} from '@/actions/chat';
 import { CloseIcon, LeafIcon, SendIcon } from '@/components/icons';
+import { HandoffChoice } from '@/components/chat/HandoffChoice';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import {
   AfterHoursNotice,
@@ -18,7 +24,8 @@ import {
   TypingIndicator,
 } from '@/components/chat/Notices';
 import { useConversationMessages } from '@/components/chat/useConversationMessages';
-import { ensureAnonymousSession } from '@/lib/session';
+import { HANDOFF_OFFER_TEXT } from '@/lib/prompt';
+import { ensureAnonymousSession, resetAnonymousSession } from '@/lib/session';
 import { MAX_MESSAGE_LENGTH } from '@/lib/validation';
 import type { Message } from '@/types';
 
@@ -76,6 +83,13 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
    */
   const [cooldown, setCooldown] = useState(false);
   const [escalated, setEscalated] = useState(false);
+  /**
+   * AIがFAQを案内したうえで担当者を提案し、顧客の選択を待っている状態。
+   * 初期値はサーバーから受け取る（リロードしても選択肢が復元されるようにするため）。
+   */
+  const [pendingHandoff, setPendingHandoff] = useState(false);
+  /** 選択の送信中。二重押しを防ぐ */
+  const [isChoosing, setIsChoosing] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
 
   const { messages, connection, resync } = useConversationMessages(
@@ -94,8 +108,21 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
         // 「購読は成功しているのに何も届かない」状態になる
         await ensureAnonymousSession();
 
-        const result = await bootstrapConversation();
+        let result = await bootstrapConversation();
         if (cancelled) return;
+
+        // Cookie に残った JWT が Auth サーバー側でもう有効でないことがある
+        // （匿名ユーザーが削除された・トークンが失効した）。
+        // getSession() は Cookie を読むだけなので気づけず、
+        // 再読み込みしても同じ Cookie を使い続けて永久に復帰できない。
+        // セッションを作り直して1回だけやり直す。
+        if (!result.success) {
+          console.error('[ChatPanel] 会話の準備に失敗。セッションを作り直します:', result.error);
+          await resetAnonymousSession();
+          if (cancelled) return;
+          result = await bootstrapConversation();
+          if (cancelled) return;
+        }
 
         if (!result.success || !result.data) {
           setErrorText(result.error ?? 'チャットを開始できませんでした。');
@@ -107,6 +134,7 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
         setHoursStart(result.data.hoursStart);
         setTimezone(result.data.timezone);
         setEscalated(result.data.status !== 'ai_handling');
+        setPendingHandoff(result.data.pendingHandoff);
         // conversationId を最後に入れることで、履歴を反映してから購読が始まる
         setConversationId(result.data.conversationId);
       } catch (error) {
@@ -150,6 +178,9 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
       }
 
       if (result.data?.escalated) setEscalated(true);
+      // 新しい往復の結果で必ず上書きする。
+      // 「選択肢を押さずに次の質問を送った」場合に古い提案が残らないようにする
+      if (result.data) setPendingHandoff(result.data.pendingHandoff);
       if (result.data) setIsBusinessHours(!result.data.afterHours);
 
       // 通常は顧客メッセージもAI回答もRealtimeのINSERTで届く。
@@ -166,6 +197,57 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
       // 送信の成否にかかわらずクールダウンに入る。
       // 失敗時こそ焦って連打されやすいため、成功時だけにしない
       setCooldown(true);
+    }
+  }
+
+  /**
+   * 「担当者へつなぐ」を選んだとき。
+   * ステータス遷移と履歴への記録は Server Action 側で行う。
+   */
+  async function handleHandoff() {
+    if (!conversationId || isChoosing) return;
+    setIsChoosing(true);
+    setErrorText(null);
+    try {
+      const result = await requestOperatorHandoff(conversationId);
+      if (!result.success) {
+        setErrorText(result.error ?? 'お繋ぎできませんでした。もう一度お試しください。');
+        return;
+      }
+      setPendingHandoff(false);
+      setEscalated(true);
+      if (result.data) setIsBusinessHours(!result.data.afterHours);
+      // 引き継ぎメッセージはサーバー側で保存されている。
+      // Realtime の取りこぼしに備えて明示的に取り直す
+      await resync();
+    } catch (error) {
+      console.error('[ChatPanel] 担当者への引き継ぎに失敗:', error);
+      setErrorText('お繋ぎできませんでした。通信状況を確認してお試しください。');
+    } finally {
+      setIsChoosing(false);
+    }
+  }
+
+  /**
+   * 「続けて質問する」を選んだとき。
+   * 会話履歴はそのまま残し、選択待ちだけ解除する。
+   */
+  async function handleContinue() {
+    if (!conversationId || isChoosing) return;
+    setIsChoosing(true);
+    // 画面はすぐ閉じる。サーバー側の解除が遅れても操作感を損なわないため
+    setPendingHandoff(false);
+    try {
+      const result = await dismissHandoffOffer(conversationId);
+      if (!result.success) {
+        // 解除に失敗しても会話は続けられる。次の送信時に必ず上書きされるので
+        // 顧客にエラーを見せる必要はなく、ログだけ残す
+        console.error('[ChatPanel] 選択待ちの解除に失敗:', result.error);
+      }
+    } catch (error) {
+      console.error('[ChatPanel] 選択待ちの解除に失敗:', error);
+    } finally {
+      setIsChoosing(false);
     }
   }
 
@@ -242,6 +324,19 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
         ))}
 
         {isSending && <TypingIndicator />}
+
+        {/* 引き継ぎの選択カード。
+            担当者の発言が入った後は選ぶ意味がないので出さない */}
+        {pendingHandoff &&
+          !escalated &&
+          !messages.some((m) => m.sender_type === 'operator') && (
+            <HandoffChoice
+              text={HANDOFF_OFFER_TEXT}
+              isBusy={isChoosing}
+              onContinue={() => void handleContinue()}
+              onHandoff={() => void handleHandoff()}
+            />
+          )}
 
         {/* 引き継ぎ通知は担当者の返信が入るまでの間だけ出す。
             出しっぱなしにすると、担当者の返信より下に居座って

@@ -24,8 +24,14 @@ import type { ActionResult, DemoTurn } from '@/types';
 export interface DemoReplyResult {
   /** AIの回答本文。escalated が true のときは空文字 */
   answer: string;
-  /** true ならFAQ外・人間対応が必要と判定された */
+  /** true ならFAQ外・人間対応が必要と判定された（即エスカレーション） */
   escalated: boolean;
+  /**
+   * true なら「FAQを案内したうえで担当者を提案した」状態。
+   * answer にはFAQを根拠にした案内が入っている。
+   * デモにはDBもオペレーターも無いので、選択の結果は画面表示だけで完結する。
+   */
+  handoffOffer: boolean;
 }
 
 /** 連続送信を禁じる間隔。本番チャットのクールダウン（3秒）と揃える */
@@ -195,7 +201,11 @@ export async function sendDemoMessage(input: {
     );
     return {
       success: true,
-      data: { answer: response.answer, escalated: response.escalate },
+      data: {
+        answer: response.answer,
+        escalated: response.action === 'escalate',
+        handoffOffer: response.action === 'handoff_offer',
+      },
     };
   } catch (error) {
     // APIキーが応答に混ざらないよう、種別だけを見て固定文言を返す。

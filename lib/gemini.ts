@@ -64,19 +64,23 @@ const AI_RESPONSE_SCHEMA = {
   properties: {
     answer: {
       type: Type.STRING,
-      description: 'FAQを根拠とした回答本文。escalate が true のときは空文字',
+      description: 'FAQを根拠とした回答本文。action が escalate のときは空文字',
     },
-    escalate: {
-      type: Type.BOOLEAN,
-      description: 'オペレーターへの引き継ぎが必要なら true',
+    action: {
+      type: Type.STRING,
+      enum: ['answer', 'handoff_offer', 'escalate'],
+      description:
+        'answer=AIだけで完結 / handoff_offer=FAQを案内したうえで担当者を提案 / escalate=AIは答えず担当者へ',
     },
     reason: {
       type: Type.STRING,
-      description: 'エスカレーション理由。escalate が false のときは空文字',
+      description: 'エスカレーション理由。action が answer のときは空文字',
     },
   },
-  required: ['answer', 'escalate', 'reason'],
-  propertyOrdering: ['answer', 'escalate', 'reason'],
+  required: ['answer', 'action', 'reason'],
+  // answer を先に決めさせる。action を先にすると本文を書く前に方針だけ決めてしまい、
+  // 「handoff_offer なのに本文が空」という不整合が出やすくなる
+  propertyOrdering: ['answer', 'action', 'reason'],
 } as const;
 
 /** GeminiError の種別。呼び出し側がログ・表示を出し分けるために使う */
@@ -130,8 +134,8 @@ function isAIResponse(value: unknown): value is AIResponse {
   const v = value as Record<string, unknown>;
   return (
     typeof v.answer === 'string' &&
-    typeof v.escalate === 'boolean' &&
-    typeof v.reason === 'string'
+    typeof v.reason === 'string' &&
+    (v.action === 'answer' || v.action === 'handoff_offer' || v.action === 'escalate')
   );
 }
 
@@ -237,10 +241,25 @@ export async function generateAIResponse(
     throw new GeminiError('parse', 'Geminiの応答が期待した形式ではありませんでした');
   }
 
-  // escalate が true のときに answer が残っていると、
-  // 引き継ぎ案内と中途半端なAI回答が二重に顧客へ表示されてしまうため正規化する。
-  if (parsed.escalate) {
-    return { answer: '', escalate: true, reason: parsed.reason };
+  // action ごとに整える。
+  //
+  // 【重要】本文を空にするのは 'escalate' のときだけにすること。
+  // 'handoff_offer' は「FAQの案内を出したうえで担当者を提案する」方針なので、
+  // ここで本文を捨てると謝罪もFAQ案内も顧客に届かず、引き継ぎ文だけが表示される。
+  // この設計を入れた目的そのものが失われる。
+  if (parsed.action === 'escalate') {
+    // 引き継ぎ案内と中途半端なAI回答が二重に表示されるのを防ぐ
+    return { action: 'escalate', answer: '', reason: parsed.reason };
   }
-  return { answer: parsed.answer, escalate: false, reason: '' };
+
+  if (parsed.action === 'handoff_offer') {
+    // 本文が空のまま選択肢だけ出すと、何の案内も無いまま
+    // 「担当者へつなぐ？」と聞くことになる。安全側（即エスカレーション）へ倒す
+    if (parsed.answer.trim() === '') {
+      return { action: 'escalate', answer: '', reason: parsed.reason };
+    }
+    return { action: 'handoff_offer', answer: parsed.answer, reason: parsed.reason };
+  }
+
+  return { action: 'answer', answer: parsed.answer, reason: '' };
 }

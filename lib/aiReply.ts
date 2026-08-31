@@ -94,7 +94,7 @@ export async function resolveAiReply(
     return escalation(ESCALATION_REASON.AI_ERROR);
   }
 
-  if (aiResponse.escalate) {
+  if (aiResponse.action === 'escalate') {
     // モデルが指示外の理由文字列を返すことがあるため、既知のコードに丸めてから使う
     const reason = isKnownReason(aiResponse.reason)
       ? aiResponse.reason
@@ -102,13 +102,23 @@ export async function resolveAiReply(
     return escalation(reason);
   }
 
-  // escalate:false なのに本文が空だと顧客に無言が届く。起きたら人間へ回す
+  // 本文が空だと顧客に無言が届く。起きたら人間へ回す
   if (aiResponse.answer.trim() === '') {
-    console.error('[resolveAiReply] escalate:false だが回答本文が空でした');
+    console.error(`[resolveAiReply] action=${aiResponse.action} だが回答本文が空でした`);
     return escalation(ESCALATION_REASON.AI_ERROR);
   }
 
-  return { answer: aiResponse.answer, escalate: false, reason: '' };
+  if (aiResponse.action === 'handoff_offer') {
+    // FAQの案内はそのまま顧客へ出す。担当者につなぐかどうかは顧客が選ぶので、
+    // ここではステータスを変えない（呼び出し側が選択待ちフラグを立てる）
+    return {
+      action: 'handoff_offer',
+      answer: aiResponse.answer,
+      reason: ESCALATION_REASON.HANDOFF_OFFER,
+    };
+  }
+
+  return { action: 'answer', answer: aiResponse.answer, reason: '' };
 }
 
 /** 既知のエスカレーション理由コードかどうか */
@@ -118,5 +128,5 @@ function isKnownReason(reason: string): boolean {
 
 /** エスカレーション時の戻り値を組み立てる（顧客表示文言は確定文言に固定する） */
 function escalation(reason: string): AIResponse {
-  return { answer: getEscalationMessage(reason), escalate: true, reason };
+  return { action: 'escalate', answer: getEscalationMessage(reason), reason };
 }

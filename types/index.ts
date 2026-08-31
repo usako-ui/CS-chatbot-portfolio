@@ -81,12 +81,25 @@ export interface DemoTurn {
   text: string;
 }
 
+/**
+ * AIが選んだ対応方針。
+ *
+ * 'answer'        AIだけで完結する（FAQに回答があり個別手続きが不要）
+ * 'handoff_offer' FAQを案内したうえで担当者への引き継ぎを提案する（顧客が選ぶ）
+ * 'escalate'      AIは答えず即座に担当者へ引き継ぐ
+ *
+ * 迷った場合は安全な側（escalate）へ倒す。
+ * B判定がC判定に倒れても顧客は担当者につながるだけで実害がないが、
+ * 逆はクレームをAIが処理しようとすることになる。
+ */
+export type AIAction = 'answer' | 'handoff_offer' | 'escalate';
+
 export interface AIResponse {
-  /** 回答本文。escalate が true のときは空文字 */
+  /** AIが選んだ対応方針 */
+  action: AIAction;
+  /** 回答本文。action が 'escalate' のときは空文字 */
   answer: string;
-  /** true ならオペレーターへ引き継ぐ */
-  escalate: boolean;
-  /** エスカレーション理由。escalate が false のときは空文字 */
+  /** エスカレーション理由。action が 'answer' のときは空文字 */
   reason: string;
 }
 
