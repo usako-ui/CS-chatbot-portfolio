@@ -85,6 +85,16 @@ export function DemoChatWidget() {
   const [pendingHandoff, setPendingHandoff] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const nextId = useRef(1);
+  /**
+   * パネルを開いた時点で既に存在していたメッセージのID。
+   * ここに入っているものはアニメーションさせない。
+   *
+   * デモはDBを持たず messages は state なので、パネルを閉じても中身は残る。
+   * 一方で吹き出しはアンマウントされるため、開き直すと再マウントされる。
+   * 対策しないと、開くたびに過去の会話が全部下から流れてくる。
+   * 開いた瞬間のIDを控えて、それ以降に増えた分だけ新着として扱う。
+   */
+  const seenOnOpenRef = useRef<Set<number>>(new Set());
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -375,6 +385,7 @@ export function DemoChatWidget() {
                     content={m.content}
                     createdAt={m.createdAt}
                     timezone="Asia/Tokyo"
+                    isNew={!seenOnOpenRef.current.has(m.id)}
                   />
                 ))}
 
@@ -499,7 +510,12 @@ export function DemoChatWidget() {
           モバイルでパネルを開いている間は全画面パネルに隠れるので非表示にする */}
       <button
         type="button"
-        onClick={() => setIsOpen((v) => !v)}
+        onClick={() => {
+          // 開く直前に控える。useEffect だと最初の描画に間に合わず、
+          // 一瞬だけ過去の会話がアニメーションしてしまう
+          if (!isOpen) seenOnOpenRef.current = new Set(messages.map((m) => m.id));
+          setIsOpen((v) => !v);
+        }}
         aria-label={isOpen ? 'チャットを閉じる' : 'チャットで質問する'}
         aria-expanded={isOpen}
         className={`fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-brand-primary text-white shadow-lg transition-all hover:bg-brand-secondary focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-accent ${

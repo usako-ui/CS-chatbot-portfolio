@@ -97,6 +97,19 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
     initialMessages
   );
 
+  /**
+   * 起動時に復元した履歴のID。ここに入っているものはアニメーションさせない。
+   *
+   * ウィジェットを閉じると ChatPanel ごとアンマウントされ、開き直すと
+   * 起動処理が走って履歴を取り直す。そのたびに全件が「新着」に見えると、
+   * 開くたびに会話全体が下から流れてきて落ち着かない。
+   * 起動時点のIDを覚えておき、それ以降に増えた分だけを新着として扱う。
+   *
+   * null は「まだ起動処理が終わっていない」状態。
+   * このときは何も動かさない（判定できないなら動かさない側に倒す）。
+   */
+  const restoredIdsRef = useRef<Set<string> | null>(null);
+
   // ---- 起動処理：匿名サインイン -> 会話の取得または作成 ----
   useEffect(() => {
     let cancelled = false;
@@ -129,6 +142,8 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
           return;
         }
 
+        // 履歴を state へ入れる前に、復元分のIDを控える（アニメーション抑止用）
+        restoredIdsRef.current = new Set(result.data.messages.map((m) => m.id));
         setInitialMessages(result.data.messages);
         setIsBusinessHours(result.data.isBusinessHours);
         setHoursStart(result.data.hoursStart);
@@ -320,6 +335,9 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
             content={m.content}
             createdAt={m.created_at}
             timezone={timezone}
+            isNew={
+              restoredIdsRef.current !== null && !restoredIdsRef.current.has(m.id)
+            }
           />
         ))}
 
