@@ -28,6 +28,12 @@ import { ESCALATION_REASON } from '@/lib/messages';
  * FAQに答えがあるのにエスカレーションされるとKPI（自動対応率）に直接効くため、
  * 「FAQにあるものは escalate にしない」を明示した。4・7 との優先順位も併記している。
  *
+ * 【クレームを別の理由コードにしている理由】
+ * 顧客表示文言をクレームだけ謝罪入りに変えるため（lib/messages.ts）。
+ * 以前は「人間対応必須」がクレームと個別データ照会を兼ねていたので、
+ * 謝罪文を入れると住所変更の依頼にまで謝ることになっていた。
+ * 判定そのもの（escalate するかどうか）は変えていない。
+ *
  * 【対応方針の判定】は A/B/C の3分類。
  * 「FAQで案内できるが個別対応も必要」な案件（商品破損・返品手続きなど）を、
  * AIが一方的に人間へ回すのではなく、案内したうえで顧客に選ばせるために追加した。
@@ -42,7 +48,7 @@ export function buildSystemInstruction(faqText: string): string {
 2. FAQに記載のない事実をでっちあげて回答してはいけません
 3. FAQに根拠がない場合は action: "escalate" を返してください
 4. 以下のいずれかに該当する場合は必ず action: "escalate" を返してください：
-   - クレーム・お怒り・不満のトーン
+   - クレーム・お怒り・不満のトーン（reason は "${ESCALATION_REASON.COMPLAINT}"）
    - 特定の注文を指定した返品・交換・注文変更・キャンセルの交渉
      （「先週の注文をキャンセルして」など。注文を特定せず手順を尋ねる相談は
        FAQに手順があるので "handoff_offer" です）
@@ -89,16 +95,21 @@ action: "handoff_offer"（FAQを案内したうえで担当者を提案する）
 
 action: "escalate"（AIは答えず担当者へ引き継ぐ）
   次のいずれか。answer は必ず空文字にしてください。
-  - クレーム・お怒り・不満のトーン
-  - 特定の注文・請求・配送を個別に調べる依頼
-  - 個人情報（住所・氏名など）の変更依頼
-  - FAQに根拠が無い質問・BOTANICAと無関係な質問
+  - クレーム・お怒り・不満のトーン        → reason: "${ESCALATION_REASON.COMPLAINT}"
+  - 特定の注文・請求・配送を個別に調べる依頼 → reason: "${ESCALATION_REASON.NEEDS_HUMAN}"
+  - 個人情報（住所・氏名など）の変更依頼   → reason: "${ESCALATION_REASON.NEEDS_HUMAN}"
+  - FAQに根拠が無い質問・BOTANICAと無関係な質問 → reason: "${ESCALATION_REASON.NO_FAQ}"
+
+  "${ESCALATION_REASON.COMPLAINT}" は顧客の感情が動いているときだけ使ってください。
+  怒りや不満が表れていない事務的な依頼（住所変更・配送状況の確認）は
+  "${ESCALATION_REASON.NEEDS_HUMAN}" です。顧客への謝罪文はこの区別で出し分けます。
 
 【出力形式】必ずJSON形式のみで返してください：
 - FAQで完結する          → {"answer":"回答テキスト","action":"answer","reason":""}
 - FAQ案内＋担当者を提案  → {"answer":"回答テキスト","action":"handoff_offer","reason":"${ESCALATION_REASON.HANDOFF_OFFER}"}
 - FAQに根拠が無い        → {"answer":"","action":"escalate","reason":"${ESCALATION_REASON.NO_FAQ}"}
+- クレーム・お怒り        → {"answer":"","action":"escalate","reason":"${ESCALATION_REASON.COMPLAINT}"}
 - 人間の判断・個別対応   → {"answer":"","action":"escalate","reason":"${ESCALATION_REASON.NEEDS_HUMAN}"}
 
-reason は "${ESCALATION_REASON.NO_FAQ}" "${ESCALATION_REASON.NEEDS_HUMAN}" "${ESCALATION_REASON.HANDOFF_OFFER}" のいずれかにしてください。`;
+reason は "${ESCALATION_REASON.NO_FAQ}" "${ESCALATION_REASON.COMPLAINT}" "${ESCALATION_REASON.NEEDS_HUMAN}" "${ESCALATION_REASON.HANDOFF_OFFER}" のいずれかにしてください。`;
 }

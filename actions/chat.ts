@@ -25,6 +25,10 @@ import {
   setConversationStatus,
   setPendingHandoff,
 } from '@/lib/conversations';
+import {
+  HANDOFF_ACCEPTED_LEAD,
+  HANDOFF_ACCEPTED_TEXT,
+} from '@/lib/messages';
 import { requireCustomerId } from '@/lib/supabase/server';
 import { validateMessageText } from '@/lib/validation';
 import type {
@@ -144,7 +148,8 @@ export async function sendCustomerMessage(
   // ---- 書き込む前に status を取り直す ----
   // 冒頭で読んだ status は、AI応答を待つ最大15秒の間に古くなっている。
   // その間に顧客が「担当者へつなぐ」を押していると会話は waiting_operator になっており、
-  // 確認せずに書くと「担当者にお繋ぎします」の直後にAIの回答が差し込まれる。
+  // 確認せずに書くと「承りました。担当者がご連絡いたします」の直後に
+  // AIの回答が差し込まれる。
   // requirements.md の「エスカレーション後はAIの自動回答を停止する」に反するため、
   // ai_handling でなくなっていたらAIの結果は捨てる（顧客メッセージは保存済み）。
   try {
@@ -267,9 +272,9 @@ export async function requestOperatorHandoff(
   // これが無いと、オペレーターは会話を見ても
   // 「AIが案内した後になぜ引き継がれたか」が分からない（AC-013）。
   const handoffMessage = afterHours
-    ? `担当者にお繋ぎします。
+    ? `${HANDOFF_ACCEPTED_LEAD}
 ${buildAfterHoursNotice(hoursStart)}`
-    : '担当者にお繋ぎします。少々お待ちください。';
+    : HANDOFF_ACCEPTED_TEXT;
 
   try {
     await insertMessage(conversationId, 'ai', handoffMessage);

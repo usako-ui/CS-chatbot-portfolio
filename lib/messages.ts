@@ -26,7 +26,12 @@ export const ESCALATION_REASON = {
   NO_FAQ: 'FAQ外',
   /** FAQを案内したうえで、個別手続きのために担当者を提案する（顧客が選ぶ） */
   HANDOFF_OFFER: '個別手続き',
-  /** 人間の判断・個別対応が必要（クレーム・個別交渉・個別データ照会） */
+  /** クレーム・お怒り・不満のトーン（顧客の感情が動いている） */
+  COMPLAINT: 'クレーム',
+  /**
+   * 人間の判断・個別対応が必要（個別データ照会・個人情報変更・個別交渉）。
+   * 顧客は怒っていないが、AIでは事実を確認できない類の依頼。
+   */
   NEEDS_HUMAN: '人間対応必須',
   /** Gemini API のエラー・タイムアウト（モデルではなくアプリが付ける） */
   AI_ERROR: 'AIエラー',
@@ -44,6 +49,27 @@ export const HANDOFF_OFFER_TEXT =
   '個別のお手続きは担当者が承ります。ご希望の対応をお選びください。';
 
 /**
+ * 「担当者が確認してから対応する」タイプの引き継ぎ文言。
+ *
+ * FAQ外・個別手続き・個別データ照会は、顧客から見ると
+ * 「AIでは分からないので人が調べる」という同じ状況なので文言を共有する。
+ * 別々の文字列にすると、片方だけ直して表現がずれる。
+ */
+const NEEDS_CHECK_TEXT = '担当者に確認してご対応いたします。少々お待ちください。';
+
+/**
+ * 顧客が「担当者へつなぐ」を選んだ直後に、会話履歴へ残す文言のリード部分。
+ *
+ * actions/chat.ts に直接書かずここに置くのは、
+ * 顧客に見える固定文言をこのファイルへ集約するため（冒頭のコメント参照）。
+ * 営業時間外は後ろに翌営業日の案内を足すので、リード文だけを定数にしている。
+ */
+export const HANDOFF_ACCEPTED_LEAD = '承りました。担当者がご連絡いたします。';
+
+/** 営業時間内に「担当者へつなぐ」を選んだときの文言 */
+export const HANDOFF_ACCEPTED_TEXT = `${HANDOFF_ACCEPTED_LEAD}少々お待ちください。`;
+
+/**
  * 顧客に表示するエスカレーション文言（requirements.md エスカレーション表の確定文言）。
  *
  * Gemini が生成した文章をそのまま出さないのは、
@@ -53,11 +79,22 @@ export const HANDOFF_OFFER_TEXT =
  * reason: "個別手続き" を組み合わせて返す経路があるため。
  * 既定値へのフォールバックでも結果は同じ文言になるが、
  * 暗黙の依存になるので明示的に定義しておく。
+ *
+ * 【なぜクレームだけ文言を分けるか】
+ * 「担当者に確認してご対応いたします」は、怒っている顧客には冷たく響く。
+ * かといって「ご不満をおかけして申し訳ございません」を住所変更の依頼に返すと、
+ * 怒っていない顧客に謝ることになり、これはこれで的外れになる。
+ * どちらか一方に寄せると必ず片方で事故るため、理由コードで出し分ける。
+ * この出し分けが成立するかは、Gemini が COMPLAINT と NEEDS_HUMAN を
+ * 区別して返せるかに依存する（判定ルールは lib/prompt.ts）。
+ * 区別できなかった場合は NEEDS_HUMAN 側（謝らない文言）に倒れる。
  */
 const ESCALATION_MESSAGE: Record<string, string> = {
-  [ESCALATION_REASON.NO_FAQ]: '担当者に確認します。しばらくお待ちください。',
-  [ESCALATION_REASON.HANDOFF_OFFER]: '担当者がご対応します。',
-  [ESCALATION_REASON.NEEDS_HUMAN]: '担当者がご対応します。',
+  [ESCALATION_REASON.NO_FAQ]: NEEDS_CHECK_TEXT,
+  [ESCALATION_REASON.HANDOFF_OFFER]: NEEDS_CHECK_TEXT,
+  [ESCALATION_REASON.COMPLAINT]:
+    'ご不満をおかけして大変申し訳ございません。担当者が直接ご対応いたします。少々お待ちください。',
+  [ESCALATION_REASON.NEEDS_HUMAN]: NEEDS_CHECK_TEXT,
   [ESCALATION_REASON.AI_ERROR]: '担当者に接続しています。',
 };
 
