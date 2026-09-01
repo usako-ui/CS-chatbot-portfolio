@@ -29,7 +29,7 @@ import {
   OperatorIcon,
   SendIcon,
 } from '@/components/icons';
-import { HANDOFF_OFFER_TEXT } from '@/lib/prompt';
+import { HANDOFF_OFFER_TEXT } from '@/lib/messages';
 import { MAX_MESSAGE_LENGTH } from '@/lib/validation';
 import type { DemoTurn, SenderType } from '@/types';
 

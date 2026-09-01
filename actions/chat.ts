@@ -25,7 +25,6 @@ import {
   setConversationStatus,
   setPendingHandoff,
 } from '@/lib/conversations';
-import { HANDOFF_OFFER_TEXT } from '@/lib/prompt';
 import { requireCustomerId } from '@/lib/supabase/server';
 import { validateMessageText } from '@/lib/validation';
 import type {
@@ -33,6 +32,21 @@ import type {
   ConversationStatus,
   Message,
 } from '@/types';
+
+/**
+ * 認証・所有権チェックに失敗したときの顧客向け文言。
+ *
+ * 例外の message をそのまま返さないこと。
+ * requireOwnedConversation は失敗時に Postgres のエラー文
+ * （テーブル名・制約名を含む）をそのまま throw するため、
+ * 顧客へ返すとDBスキーマをブラウザから読み取れてしまう。
+ * 原因の特定に必要な詳細は console.error にだけ残す。
+ */
+const ACCESS_DENIED_MESSAGE =
+  'アクセスできませんでした。画面を再読み込みしてお試しください。';
+
+/** 選択待ちの解除に失敗したときの顧客向け文言（同上の理由で固定文にする） */
+const DISMISS_FAILED_MESSAGE = '操作に失敗しました。画面を再読み込みしてください。';
 
 /** 顧客メッセージ送信の結果。UIはこれを見てローディング解除と表示を行う */
 export interface SendMessageResult {
@@ -66,17 +80,17 @@ export async function sendCustomerMessage(
   const message = validation.message;
 
   // ---- 本人確認と所有権の突合 ----
+  // customerUserId は try の外で保持する。
+  // AI応答のあとに status を取り直すため、そこで同じUIDを使い回す必要がある。
+  let customerUserId: string;
   let status: string;
   try {
-    const customerUserId = await requireCustomerId();
+    customerUserId = await requireCustomerId();
     const conversation = await requireOwnedConversation(conversationId, customerUserId);
     status = conversation.status;
   } catch (error) {
     console.error('[sendCustomerMessage] 認証・所有権チェック失敗:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'アクセスが拒否されました。',
-    };
+    return { success: false, error: ACCESS_DENIED_MESSAGE };
   }
 
   if (status === 'closed') {
@@ -126,6 +140,32 @@ export async function sendCustomerMessage(
   // ---- AI応答 ----
   // resolveAiReply は例外を投げない。失敗時もエスカレーション結果が返る。
   const aiResponse = await resolveAiReply(message, history);
+
+  // ---- 書き込む前に status を取り直す ----
+  // 冒頭で読んだ status は、AI応答を待つ最大15秒の間に古くなっている。
+  // その間に顧客が「担当者へつなぐ」を押していると会話は waiting_operator になっており、
+  // 確認せずに書くと「担当者にお繋ぎします」の直後にAIの回答が差し込まれる。
+  // requirements.md の「エスカレーション後はAIの自動回答を停止する」に反するため、
+  // ai_handling でなくなっていたらAIの結果は捨てる（顧客メッセージは保存済み）。
+  try {
+    const current = await requireOwnedConversation(conversationId, customerUserId);
+    if (current.status !== 'ai_handling') {
+      const { isOpen } = await getBusinessHoursStatus();
+      return {
+        success: true,
+        data: {
+          aiMessage: null,
+          escalated: true,
+          pendingHandoff: false,
+          afterHours: !isOpen,
+        },
+      };
+    }
+  } catch (error) {
+    // 取り直しに失敗しても本来の処理は続ける。
+    // これは稀な競合に対する保険であり、DB障害でAIの回答ごと落とすほうが害が大きい
+    console.error('[sendCustomerMessage] status の再確認に失敗:', error);
+  }
 
   // 営業時間の判定はエスカレーション時のみ必要だが、
   // 判定自体がDBアクセス1回で軽く、UIが常に afterHours を参照できるほうが扱いやすい。
@@ -209,10 +249,7 @@ export async function requestOperatorHandoff(
     conversation = await requireOwnedConversation(conversationId, customerUserId);
   } catch (error) {
     console.error('[requestOperatorHandoff] 認証・所有権チェック失敗:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'アクセスが拒否されました。',
-    };
+    return { success: false, error: ACCESS_DENIED_MESSAGE };
   }
 
   // 選択待ちでない会話を引き継ぎ状態にしない（二重押し・改ざん対策）
@@ -272,10 +309,7 @@ export async function dismissHandoffOffer(
     return { success: true };
   } catch (error) {
     console.error('[dismissHandoffOffer] 選択待ちの解除に失敗:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : '操作に失敗しました。',
-    };
+    return { success: false, error: DISMISS_FAILED_MESSAGE };
   }
 }
 

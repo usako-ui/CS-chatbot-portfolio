@@ -96,6 +96,13 @@ export async function insertMessage(
  * NOW() で自動設定するため、ここでの明示的な指定は冗長。
  * 害は無いので保険として残している（トリガーが後から外れても並び順が壊れない）。
  *
+ * 【pending_handoff を必ず false に落とす理由】
+ * 選択待ちは「AIが提案して顧客の返事を待っている」状態にだけ意味がある。
+ * ai_handling から離れた時点でその状態は終わっているため、フラグを持つ側で落とす。
+ * 残したままにすると、担当者が対応中の会話に「担当者へつなぐ」の選択肢が
+ * 復活しうる（今はUI側の二重ガードで防げているが、片方外れると表に出る）。
+ * pg_cron の自動クローズ除外条件にも引っかかり続け、会話が滞留する。
+ *
  * @param assignedOperatorId 指定すると担当者も同時にセットする（Q-001の自動割り当て）
  */
 export async function setConversationStatus(
@@ -106,8 +113,9 @@ export async function setConversationStatus(
   const patch: {
     status: ConversationStatus;
     updated_at: string;
+    pending_handoff: boolean;
     assigned_operator_id?: string;
-  } = { status, updated_at: new Date().toISOString() };
+  } = { status, updated_at: new Date().toISOString(), pending_handoff: false };
 
   if (assignedOperatorId) {
     patch.assigned_operator_id = assignedOperatorId;

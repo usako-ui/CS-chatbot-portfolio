@@ -24,7 +24,7 @@ import {
   TypingIndicator,
 } from '@/components/chat/Notices';
 import { useConversationMessages } from '@/components/chat/useConversationMessages';
-import { HANDOFF_OFFER_TEXT } from '@/lib/prompt';
+import { HANDOFF_OFFER_TEXT } from '@/lib/messages';
 import { ensureAnonymousSession, resetAnonymousSession } from '@/lib/session';
 import { MAX_MESSAGE_LENGTH } from '@/lib/validation';
 import type { Message } from '@/types';
@@ -332,7 +332,11 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
           !messages.some((m) => m.sender_type === 'operator') && (
             <HandoffChoice
               text={HANDOFF_OFFER_TEXT}
-              isBusy={isChoosing}
+              // 送信中も押せないようにする。AI応答は最大15秒かかり、その間も
+              // 前のターンの選択カードは画面に残る。ここで押せてしまうと
+              // 「担当者にお繋ぎします」の後にAIの回答が届き、
+              // 引き継ぎ後はAIを停止するという取り決めが崩れる
+              isBusy={isChoosing || isSending}
               onContinue={() => void handleContinue()}
               onHandoff={() => void handleHandoff()}
             />

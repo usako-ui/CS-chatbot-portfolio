@@ -13,11 +13,8 @@ import 'server-only';
 
 import { generateAIResponse, GeminiError, type AiTurn } from '@/lib/gemini';
 import { getActiveFaqs, buildFaqPromptText } from '@/lib/faq';
-import {
-  buildSystemInstruction,
-  getEscalationMessage,
-  ESCALATION_REASON,
-} from '@/lib/prompt';
+import { buildSystemInstruction } from '@/lib/prompt';
+import { getEscalationMessage, ESCALATION_REASON } from '@/lib/messages';
 import type { AIResponse, Message } from '@/types';
 
 /**

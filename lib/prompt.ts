@@ -1,66 +1,22 @@
 /**
- * AIシステムプロンプトとエスカレーション文言（T-12）
- *
- * 'use server' のファイルは非同期関数しかエクスポートできないため、
- * プロンプト組み立てと定数はこちらに置き、lib/aiReply.ts から呼ぶ。
+ * AIシステムプロンプトの組み立て（T-12）
  *
  * 【このファイルが重要な理由】
  * 講座提供の正式FAQには「個別のご事情は担当者が対応します」という逃げ道が無い。
  * つまりハルシネーション抑制（AI-005・AC-004）とエスカレーション判定（AC-002）は
  * FAQ本文ではなく、このプロンプトの制約だけで支えている。
  * ここを緩めると受入条件が直接落ちるため、変更時は docs/test-scenarios.md を再実行すること。
- */
-
-/**
- * エスカレーション理由コード。
  *
- * Gemini には自由記述ではなくこの2値のどちらかを返させる。
- * 理由が自由記述だと顧客への表示文言を機械的に選べず、
- * requirements.md のエスカレーション表（理由ごとに文言が違う）を実装できないため。
+ * 【server-only を付けている理由】
+ * システムプロンプトはエスカレーション判定ルールそのもので、
+ * 公開JSに載ると顧客側から判定を回避する入力を組み立てられる。
+ * クライアントコンポーネントが誤って import した瞬間にビルドエラーになるよう固定する。
+ * 顧客にも表示する固定文言は lib/messages.ts 側にあるので、
+ * 文言が欲しいだけのときはそちらを import すること。
  */
-export const ESCALATION_REASON = {
-  /** FAQに根拠が無い質問だった */
-  NO_FAQ: 'FAQ外',
-  /** FAQを案内したうえで、個別手続きのために担当者を提案する（顧客が選ぶ） */
-  HANDOFF_OFFER: '個別手続き',
-  /** 人間の判断・個別対応が必要（クレーム・個別交渉・個別データ照会） */
-  NEEDS_HUMAN: '人間対応必須',
-  /** Gemini API のエラー・タイムアウト（モデルではなくアプリが付ける） */
-  AI_ERROR: 'AIエラー',
-} as const;
+import 'server-only';
 
-export type EscalationReason =
-  (typeof ESCALATION_REASON)[keyof typeof ESCALATION_REASON];
-
-/**
- * 顧客に表示するエスカレーション文言（requirements.md エスカレーション表の確定文言）。
- *
- * Gemini が生成した文章をそのまま出さないのは、
- * 引き継ぎ時の案内を毎回同じ表現に固定して顧客の混乱を防ぐため。
- */
-/**
- * 引き継ぎを提案するときに、AIの回答の下へ添える案内文。
- * ここは固定文にする。AIに毎回書かせると言い回しが揺れ、
- * 「担当者につながるのか、つながらないのか」が読み取りにくくなる。
- */
-export const HANDOFF_OFFER_TEXT = '個別のお手続きは担当者が承ります。ご希望の対応をお選びください。';
-
-const ESCALATION_MESSAGE: Record<string, string> = {
-  [ESCALATION_REASON.NO_FAQ]: '担当者に確認します。しばらくお待ちください。',
-  [ESCALATION_REASON.NEEDS_HUMAN]: '担当者がご対応します。',
-  [ESCALATION_REASON.AI_ERROR]: '担当者に接続しています。',
-};
-
-/** 理由コードが想定外だった場合の既定文言（人間対応側に倒す） */
-const DEFAULT_ESCALATION_MESSAGE = ESCALATION_MESSAGE[ESCALATION_REASON.NEEDS_HUMAN];
-
-/**
- * エスカレーション理由から顧客表示メッセージを引く。
- * モデルが指示を外れた理由文字列を返しても、必ず何らかの案内文になるようにしている。
- */
-export function getEscalationMessage(reason: string): string {
-  return ESCALATION_MESSAGE[reason] ?? DEFAULT_ESCALATION_MESSAGE;
-}
+import { ESCALATION_REASON } from '@/lib/messages';
 
 /**
  * システムプロンプトを組み立てる。
