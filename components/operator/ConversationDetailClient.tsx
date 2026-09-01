@@ -246,7 +246,7 @@ export function ConversationDetailClient({
                 className="flex items-center gap-1.5 rounded-lg border border-brand-primary px-3 py-1.5 text-[13px] font-medium text-brand-primary transition-colors hover:bg-brand-primary hover:text-white disabled:opacity-50"
               >
                 <CheckIcon size={15} />
-                {isClosing ? '処理中...' : '完了にする'}
+                {isClosing ? '処理中...' : '対応完了'}
               </button>
             )}
           </div>
