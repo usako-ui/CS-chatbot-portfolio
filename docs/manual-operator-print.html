@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>カスタマーサポート操作マニュアル｜BOTANICA</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 印刷して手元に置く前提のため、Webフォントが取れない環境でも
+     読めるよう日本語のシステムフォントをフォールバックに並べる -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #2d6a4f;
+    --secondary: #40916c;
+    --accent: #b7e4c7;
+    --text: #1b4332;
+    --sand: #faf7f2;
+    --line: #d8e6dd;
+  }
+
+  /* 印刷時に背景色と枠線を出す。
+     これが無いとブラウザ既定で背景が落ち、見出し帯やQ&Aの区切りが消える */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    box-sizing: border-box;
+  }
+
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic",
+                 "Meiryo", sans-serif;
+    color: var(--text);
+    background: #eceff1;
+    line-height: 1.6;
+    font-size: 10.5pt;
+  }
+
+  /* A4 1枚。画面で見たときも仕上がりが分かるよう用紙の形で表示する */
+  .sheet {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 12mm auto;
+    padding: 13mm 14mm;
+    background: #fff;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, .15);
+  }
+
+  /* ---- ヘッダー ---- */
+  .head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10mm;
+    border-bottom: 2.5pt solid var(--primary);
+    padding-bottom: 3mm;
+    margin-bottom: 6mm;
+  }
+  .head h1 {
+    font-size: 17pt;
+    font-weight: 700;
+    margin: 0 0 1mm;
+    letter-spacing: .02em;
+  }
+  .head .sub {
+    font-size: 9.5pt;
+    color: var(--secondary);
+    margin: 0;
+  }
+  .brand {
+    text-align: right;
+    white-space: nowrap;
+  }
+  .brand .name {
+    font-size: 12pt;
+    font-weight: 700;
+    letter-spacing: .18em;
+    color: var(--primary);
+  }
+  .brand .role {
+    font-size: 8pt;
+    color: var(--secondary);
+    letter-spacing: .06em;
+  }
+
+  /* ---- セクション ---- */
+  section { margin-bottom: 5.5mm; }
+
+  h2 {
+    font-size: 11pt;
+    font-weight: 700;
+    color: #fff;
+    background: var(--primary);
+    margin: 0 0 3mm;
+    padding: 1.6mm 3mm;
+    border-radius: 1.2mm;
+    display: flex;
+    align-items: baseline;
+    gap: 2.5mm;
+  }
+  h2 .no {
+    font-size: 9pt;
+    background: rgba(255, 255, 255, .22);
+    border-radius: 999px;
+    padding: .3mm 2.2mm;
+  }
+
+  .body { padding: 0 1mm; }
+
+  /* ---- URL記入欄 ---- */
+  .url-row {
+    display: flex;
+    align-items: baseline;
+    gap: 3mm;
+    background: var(--sand);
+    border: .6pt solid var(--line);
+    border-radius: 1.2mm;
+    padding: 2.5mm 3mm;
+    margin-bottom: 2.5mm;
+  }
+  .url-row .label {
+    font-size: 9pt;
+    font-weight: 700;
+    color: var(--secondary);
+    white-space: nowrap;
+  }
+  .url-row .blank {
+    flex: 1;
+    border-bottom: .8pt solid var(--secondary);
+    min-height: 5mm;
+  }
+
+  /* ---- 手順（番号付き） ---- */
+  ol.steps {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: step;
+  }
+  ol.steps li {
+    counter-increment: step;
+    position: relative;
+    padding-left: 8mm;
+    margin-bottom: 1.8mm;
+  }
+  ol.steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: .3mm;
+    width: 5.4mm;
+    height: 5.4mm;
+    line-height: 5.4mm;
+    text-align: center;
+    font-size: 8.5pt;
+    font-weight: 700;
+    color: #fff;
+    background: var(--secondary);
+    border-radius: 999px;
+  }
+  ol.steps .hint {
+    display: block;
+    font-size: 9pt;
+    color: var(--secondary);
+  }
+
+  /* ---- 完了操作の強調 ---- */
+  .done {
+    background: var(--accent);
+    border-left: 2.5mm solid var(--primary);
+    border-radius: 1.2mm;
+    padding: 3mm 4mm;
+    font-weight: 500;
+  }
+  .done .btn {
+    display: inline-block;
+    background: var(--primary);
+    color: #fff;
+    font-size: 9pt;
+    font-weight: 700;
+    border-radius: 1mm;
+    padding: .6mm 2.5mm;
+    margin: 0 .5mm;
+  }
+
+  /* ---- Q&A ---- */
+  .qa { border-top: .6pt solid var(--line); }
+  .qa .item {
+    border-bottom: .6pt solid var(--line);
+    padding: 2.2mm 1mm;
+  }
+  .qa .q {
+    font-weight: 700;
+    font-size: 10pt;
+    margin: 0 0 .8mm;
+    padding-left: 6.5mm;
+    position: relative;
+  }
+  .qa .a {
+    margin: 0;
+    font-size: 9.5pt;
+    padding-left: 6.5mm;
+    position: relative;
+    color: #37524a;
+  }
+  .qa .q::before,
+  .qa .a::before {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 4.6mm;
+    height: 4.6mm;
+    line-height: 4.6mm;
+    text-align: center;
+    font-size: 8.5pt;
+    font-weight: 700;
+    border-radius: 1mm;
+  }
+  .qa .q::before {
+    content: "Q";
+    background: var(--primary);
+    color: #fff;
+  }
+  .qa .a::before {
+    content: "A";
+    background: var(--accent);
+    color: var(--primary);
+  }
+
+  /* ---- 印刷の手引き ---- */
+  .print-tip {
+    margin-top: 5mm;
+    background: var(--sand);
+    border: .6pt dashed var(--secondary);
+    border-radius: 1.2mm;
+    padding: 2.5mm 3.5mm;
+    font-size: 8.5pt;
+    color: var(--secondary);
+  }
+  .print-tip strong { color: var(--primary); }
+  .print-tip ul { margin: 1mm 0 0; padding-left: 4.5mm; }
+
+  /* ---- フッター ---- */
+  footer {
+    margin-top: 5mm;
+    border-top: .8pt solid var(--line);
+    padding-top: 2.5mm;
+    display: flex;
+    justify-content: space-between;
+    gap: 6mm;
+    font-size: 7.5pt;
+    color: #7a908a;
+  }
+
+  /* ---- 印刷指定 ---- */
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+  @media print {
+    body { background: #fff; font-size: 10pt; }
+    .sheet {
+      width: auto;
+      min-height: 0;
+      margin: 0;
+      padding: 0;
+      box-shadow: none;
+    }
+    /* 途中でページが割れないようにする */
+    section, .qa .item, .done, .print-tip { break-inside: avoid; }
+    /* 画面で見るための案内は紙には出さない */
+    .screen-only { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <div class="head">
+    <div>
+      <h1>カスタマーサポート操作マニュアル</h1>
+      <p class="sub">AI CSチャットボット　オペレーター向け</p>
+    </div>
+    <div class="brand">
+      <div class="name">BOTANICA</div>
+      <div class="role">サポート管理</div>
+    </div>
+  </div>
+
+  <section>
+    <h2><span class="no">1</span>ログイン</h2>
+    <div class="body">
+      <div class="url-row">
+        <span class="label">管理画面URL</span>
+        <span class="blank"></span>
+      </div>
+      <ol class="steps">
+        <li>上記のURLを開き、メールアドレスとパスワードを入力します。</li>
+        <li>「ログイン」を押すと、未対応の問い合わせ件数が表示されます。</li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="no">2</span>返信の手順</h2>
+    <div class="body">
+      <ol class="steps">
+        <li>左の一覧から問い合わせをクリックします。</li>
+        <li>右下のテキストボックスに返信を入力します。</li>
+        <li>
+          Enterキーで送信します。
+          <span class="hint">改行したいときは Shift + Enter</span>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="no">3</span>対応完了の操作</h2>
+    <div class="body">
+      <p class="done">
+        解決したら、右上の<span class="btn">対応完了</span>ボタンをクリックします。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="no">4</span>よくあるトラブルと対処法</h2>
+    <div class="body qa">
+      <div class="item">
+        <p class="q">チャットの一覧が表示されない</p>
+        <p class="a">ページを再読み込み（F5）してください。改善しない場合はログアウトして再ログインしてください。</p>
+      </div>
+      <div class="item">
+        <p class="q">返信が送れない</p>
+        <p class="a">画面上部に「通信に失敗しました」と表示される場合は、ネットワーク接続を確認して再度お試しください。</p>
+      </div>
+      <div class="item">
+        <p class="q">新着の問い合わせが自動で表示されない</p>
+        <p class="a">ページを再読み込みしてください。通常は自動で更新されますが、長時間操作しない場合に止まることがあります。</p>
+      </div>
+      <div class="item">
+        <p class="q">ログインできない</p>
+        <p class="a">パスワードを確認してください。それでも入れない場合はシステム管理者にお問い合わせください。</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="print-tip screen-only">
+    <strong>印刷のしかた</strong>
+    <ul>
+      <li>ブラウザでこのファイルを開き、Ctrl + P（Macは Cmd + P）を押します。</li>
+      <li>用紙サイズは「A4」、余白は「標準」を選びます。</li>
+      <li>「背景のグラフィック」をオンにすると見やすくなります。</li>
+    </ul>
+  </div>
+
+  <footer>
+    <span>本システムはAIと人間のハイブリッド対応を実現するCSチャットボットです。</span>
+    <span>BOTANICA カスタマーサポート</span>
+  </footer>
+
+</div>
+</body>
+</html>
