@@ -16,18 +16,39 @@ import type { ConversationStatus } from '@/types';
 /** 一覧の取得上限。lib/operatorData.ts の limit と揃えること */
 const LIST_LIMIT = 200;
 
-/** サイドバーの絞り込みをステータス配列に変換する */
+/**
+ * 未完了とみなすステータス。
+ * 「問い合わせ一覧」（既定表示）はこの3つだけを出す。
+ */
+const OPEN_STATUSES: ConversationStatus[] = [
+  'ai_handling',
+  'waiting_operator',
+  'operator_handling',
+];
+
+/**
+ * サイドバーの絞り込みをステータス配列に変換する。
+ *
+ * 【なぜ既定表示から完了を外すか】
+ * 一覧は updated_at の降順で最新200件までしか取らない（LIST_LIMIT）。
+ * 完了済みも同じ枠を使うため、件数が増えると
+ * 対応が必要な古い問い合わせが200件の外へ押し出されて見えなくなる。
+ * 月500件のペースだと約12日分で埋まる計算になる。
+ * 日常業務で見たいのは「対応が必要なもの」なので、既定表示は未完了に絞る。
+ *
+ * 完了済みを含む全件は `?status=all`（すべての会話）で見る。
+ * 以前は既定表示も all と同じ挙動で、メニューが2つとも同じ結果を出していた。
+ */
 function toStatuses(param: string | null): ConversationStatus[] | undefined {
-  if (!param || param === 'all') return undefined;
-  const valid: ConversationStatus[] = [
-    'ai_handling',
-    'waiting_operator',
-    'operator_handling',
-    'closed',
-  ];
+  // 未指定＝「問い合わせ一覧」。未完了だけに絞る
+  if (!param) return OPEN_STATUSES;
+  // 明示的に「すべての会話」を選んだときだけ絞り込まない
+  if (param === 'all') return undefined;
+
+  const valid: ConversationStatus[] = [...OPEN_STATUSES, 'closed'];
   return valid.includes(param as ConversationStatus)
     ? [param as ConversationStatus]
-    : undefined;
+    : OPEN_STATUSES;
 }
 
 /** 相対時刻。一覧では「何分前か」のほうが絶対時刻より把握しやすい */
