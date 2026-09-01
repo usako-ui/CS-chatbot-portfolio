@@ -239,23 +239,40 @@ export function FaqClient() {
                 </p>
               </div>
 
-              {/* 有効/無効トグル */}
-              <button
-                type="button"
-                onClick={() => void handleToggle(faq)}
-                role="switch"
-                aria-checked={faq.is_active}
-                aria-label={`${faq.question} を${faq.is_active ? '無効' : '有効'}にする`}
-                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-                  faq.is_active ? 'bg-brand-primary' : 'bg-slate-300'
-                }`}
-              >
+              {/* 有効/無効トグル
+                  文字ラベルを併記するのは、色と位置だけで状態を示すと
+                  色覚特性のある方に伝わらないため。一覧を上から見たときに
+                  どれが無効か一目で分かる効果もある。 */}
+              <div className="flex shrink-0 items-center gap-2">
                 <span
-                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
-                    faq.is_active ? 'translate-x-[22px]' : 'translate-x-0.5'
+                  className={`w-7 text-right text-[11px] font-bold ${
+                    faq.is_active ? 'text-brand-primary' : 'text-slate-400'
                   }`}
-                />
-              </button>
+                >
+                  {faq.is_active ? '有効' : '無効'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void handleToggle(faq)}
+                  role="switch"
+                  aria-checked={faq.is_active}
+                  aria-label={`${faq.question} を${faq.is_active ? '無効' : '有効'}にする`}
+                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-secondary focus-visible:ring-offset-2 ${
+                    faq.is_active ? 'bg-brand-primary' : 'bg-slate-300'
+                  }`}
+                >
+                  {/* left-0.5 を必ず付けること。
+                      absolute で left を省くと基準がボタンの静的位置になり、
+                      button が持つ text-align: center の影響でつまみが中央に寄る。
+                      その状態で translate すると ON のときトラックの外へ出て
+                      見えなくなり、緑一色の塊にしか見えなくなる。 */}
+                  <span
+                    className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                      faq.is_active ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
           </li>
         ))}
