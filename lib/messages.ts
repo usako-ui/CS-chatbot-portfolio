@@ -64,7 +64,7 @@ const NEEDS_CHECK_TEXT = '担当者に確認してご対応いたします。少
  * 顧客に見える固定文言をこのファイルへ集約するため（冒頭のコメント参照）。
  * 営業時間外は後ろに翌営業日の案内を足すので、リード文だけを定数にしている。
  */
-export const HANDOFF_ACCEPTED_LEAD = '承りました。担当者がご連絡いたします。';
+export const HANDOFF_ACCEPTED_LEAD = '承りました。担当者からご返信いたします。';
 
 /** 営業時間内に「担当者へつなぐ」を選んだときの文言 */
 export const HANDOFF_ACCEPTED_TEXT = `${HANDOFF_ACCEPTED_LEAD}少々お待ちください。`;

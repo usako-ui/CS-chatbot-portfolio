@@ -352,7 +352,7 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
               text={HANDOFF_OFFER_TEXT}
               // 送信中も押せないようにする。AI応答は最大15秒かかり、その間も
               // 前のターンの選択カードは画面に残る。ここで押せてしまうと
-              // 「承りました。担当者がご連絡いたします」の後にAIの回答が届き、
+              // 「承りました。担当者からご返信いたします」の後にAIの回答が届き、
               // 引き継ぎ後はAIを停止するという取り決めが崩れる
               isBusy={isChoosing || isSending}
               onContinue={() => void handleContinue()}
