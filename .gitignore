@@ -18,6 +18,8 @@ _verify.local/
 _operator-credentials.local.md
 agent-brief.md
 botanica_design_v3.html
+# 講師提出用メモ。講師用ログイン情報を含むため絶対に公開しない
+docs/submission.md
 
 # 講座提供のナレッジ原本（CSV）。
 #   FAQ本文は supabase/seed.sql に取り込み済みのため、原本は公開しない。
