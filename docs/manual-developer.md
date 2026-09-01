@@ -23,13 +23,15 @@
 
 ### ページ（`app/`）
 
-Route Group で3系統に分けている。URLには `(botanica)` などは現れない。
+Route Group で3系統に分けている。Route Group 名（カッコ書きの階層）はURLに現れない。
 
 ```
 app/
-├── page.tsx                          ランディング（ポートフォリオ用の紹介ページ）
+├── page.tsx                          ランディング（紹介ページ）
 ├── layout.tsx                        全ページ共通のルートレイアウト
-├── (botanica)/botanica/page.tsx      本番チャット（匿名サインイン・DB保存あり）
+├── (client-ec)/                      クライアントのECサイトに埋め込む
+│                                     ウィジェットのデモページ
+│                                     （匿名サインイン・DB保存あり）
 ├── (demo-ec)/demo-ec/page.tsx        体験用デモ（体験者のAPIキー・DB保存なし）
 └── (operator)/
     ├── layout.tsx                    管理画面共通レイアウト（認証ガード）
@@ -40,7 +42,7 @@ app/
     └── settings/page.tsx             営業時間設定
 ```
 
-`/chat` は `next.config.mjs` の `redirects()` で `/botanica` へ307転送している。middleware ではなくここで処理しているのは、middleware の matcher に足すと匿名サインイン前のアクセスにも Auth 問い合わせが走るため。
+`/chat` は `next.config.mjs` の `redirects()` でウィジェット埋め込みページへ307転送している。転送先の実際のパスは `next.config.mjs` を参照すること。middleware ではなくここで処理しているのは、middleware の matcher に足すと匿名サインイン前のアクセスにも Auth 問い合わせが走るため。静的なリダイレクトに認証は不要。
 
 ### Server Actions（`actions/`）
 
@@ -83,7 +85,7 @@ demo/       デモ用ウィジェット（DemoChatWidget）
 operator/   管理画面（Sidebar・ConversationList・ConversationDetailClient ほか）
             useOperatorRealtime.ts が管理側の Realtime 購読
 landing/    ランディング専用（モックUI含む）
-store/      StoreFront.tsx を /botanica と /demo-ec で共有
+store/      StoreFront.tsx をウィジェット埋め込みページとデモページで共有
 icons/      SVG線アイコン（外部アイコンライブラリ・絵文字は使わない方針）
 ```
 
@@ -359,7 +361,8 @@ npm uninstall playwright      # 終わったら外す
 2. **Gemini の有料プランへの切り替え**（無料枠は本番運用を想定していない）
 3. **`framer-motion` の要否判断**
    新着メッセージのフェードイン（0.25秒）のみに使っており、First Load JS が
-   /botanica で 182→222kB 増えている。CSSの `@keyframes` でも同じ見た目を作れる。
+   ウィジェット埋め込みページで 182→222kB 増えている。
+   CSSの `@keyframes` でも同じ見た目を作れる。
 
 ---
 
