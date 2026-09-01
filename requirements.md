@@ -695,7 +695,7 @@ export async function sendMessage(conversationId: string, text: string) {
 ステータス変更のタイミング：
   - ai_handling → waiting_operator：AI がエスカレーション判定したとき
   - waiting_operator → operator_handling：オペレーターが最初の返信を送信したとき（自動）
-  - operator_handling → closed：管理画面の「完了にする」ボタン（手動）
+  - operator_handling → closed：管理画面の「対応完了」ボタン（手動）
   - closed に変更できるのは operator_handling の会話のみ
 ```
 
