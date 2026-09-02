@@ -28,10 +28,16 @@ export const GEMINI_MODEL = 'gemini-2.5-flash';
 
 /**
  * タイムアウト（ミリ秒）。
- * NFR-001 で平均10秒以内と定めているため、15秒を上限として打ち切る。
+ * NFR-001 で平均10秒以内と定めているため、30秒を上限として打ち切る。
  * これを超えたら待たせ続けるより即オペレーターへ回したほうが顧客体験がよい（AI-009）。
+ *
+ * 【15秒から延ばした理由】2026-09-02
+ * 本番で Gemini の応答が 1.2秒 / 39秒 / 143秒 と大きく振れており、
+ * 15秒だと正常なリクエストまで打ち切られて「担当者に接続しています。」に落ちていた。
+ * AIが答えられる質問まで人へ回るのは自動対応率（KPI）に直接効くため上限を延ばす。
+ * 短くしすぎると誤エスカレーション、長くしすぎると顧客を待たせるトレードオフ。
  */
-export const GEMINI_TIMEOUT_MS = 15_000;
+export const GEMINI_TIMEOUT_MS = 30_000;
 
 /**
  * Gemini に渡す会話の1ターン。
@@ -85,7 +91,7 @@ const AI_RESPONSE_SCHEMA = {
 
 /** GeminiError の種別。呼び出し側がログ・表示を出し分けるために使う */
 export type GeminiErrorKind =
-  /** 15秒以内に応答が返らなかった */
+  /** 制限時間内に応答が返らなかった */
   | 'timeout'
   /** APIがエラーを返した（キー不正・レート制限・障害など） */
   | 'api'
@@ -188,7 +194,7 @@ export async function generateAIResponse(
         // 0 にしないのは、完全な貪欲法だと定型文が硬くなりやすいため。
         temperature: 0.1,
         // 2.5 Flash は既定で思考トークンを使い応答が遅くなる。
-        // FAQ参照の一問一答に推論は不要なため無効化し、15秒の枠内に収める。
+        // FAQ参照の一問一答に推論は不要なため無効化し、制限時間の枠内に収める。
         thinkingConfig: { thinkingBudget: 0 },
         abortSignal: controller.signal,
       },
@@ -223,7 +229,7 @@ export async function generateAIResponse(
       { cause: error }
     );
   } finally {
-    // 成功時もタイマーを必ず解除する。放置するとプロセスが最大15秒終了しない。
+    // 成功時もタイマーを必ず解除する。放置するとプロセスが最大30秒終了しない。
     clearTimeout(timer);
   }
 

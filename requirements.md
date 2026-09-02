@@ -40,6 +40,7 @@
 | 決定① | RLS と Realtime が両立しない（当初の RLS 案は顧客に JWT がなく常に NULL 判定になり、ポリシーが機能しない） | Supabase 匿名サインインで顧客にも JWT を発行し、`auth.uid()` で識別する。`customer_session_id TEXT` を `customer_user_id UUID` に置換。オペレーターと匿名顧客は `is_anonymous` クレームで区別 | DBスキーマ / RLS / Auth / Realtime / 型定義 |
 | 決定② | ブランチ戦略 | Git worktree による並列開発。ただしバックエンド（DB・RLS・Server Action・型定義）が完成するまでフロントエンドには着手しない | 開発プロセス |
 | 決定③ | 歓迎メッセージの絵文字がコーディング規約と矛盾 | 絵文字を削除し SVG 線アイコンに統一 | FR-CUS-010 / 会話フロー |
+| 決定④<br>2026-09-02 | AI回答のタイムアウトが15秒では短い | タイムアウトを15秒から**30秒**へ延長。Gemini APIの応答が1.2〜143秒と不安定なため、15秒では正常なリクエストまでタイムアウトする事例が発生した（本番でFAQに回答できる質問が「担当者に接続しています。」に落ちた） | NFR-001 / AI-009 / `lib/gemini.ts` |
 
 **決定①に伴って判明した重大な注意点（実装前に必読）：**
 
@@ -474,7 +475,7 @@ Supabase Realtime を使用。以下をリアルタイム購読する：
 
 | 要件ID | カテゴリ | 要件内容 | 目標値 |
 |---|---|---|---|
-| NFR-001 | 応答速度 | AI回答の応答時間 | 平均10秒以内（Gemini API依存） |
+| NFR-001 | 応答速度 | AI回答の応答時間 | 平均10秒以内・タイムアウト30秒以内（Gemini API依存） |
 | NFR-002 | 応答速度 | Realtime更新の遅延 | 5秒以内 |
 | NFR-003 | 応答速度 | 管理画面の初期ロード | 3秒以内 |
 | NFR-004 | 可用性 | システム稼働率 | 99%以上（Supabase・Vercel SLAに準拠） |
@@ -652,7 +653,7 @@ export async function sendMessage(conversationId: string, text: string) {
   - レスポンスの型：
       { "answer": string, "escalate": boolean, "reason": string }
   - FAQ は全件（is_active=TRUE のもの）をプロンプトに含める（MVP はシンプル実装優先）
-  - タイムアウト：15秒。AbortController で制御し、タイムアウト時は即エスカレーション
+  - タイムアウト：30秒。AbortController で制御し、タイムアウト時は即エスカレーション
 
 システムプロンプト（確定版）：
   あなたはBOTANICA（自然派スキンケアECブランド）のカスタマーサポートAIです。

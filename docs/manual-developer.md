@@ -237,7 +237,7 @@ export const GEMINI_MODEL = 'gemini-2.5-flash';
    - 戻り値は `AIResponse`（`action` は `'answer' | 'handoff_offer' | 'escalate'`）
    - 失敗時は `GeminiError` 相当の例外を投げる（握りつぶさない）
    - JSON強制（Geminiの `responseSchema` に相当する仕組みを使う）
-   - タイムアウト15秒で打ち切る
+   - タイムアウト30秒で打ち切る
 3. `lib/aiReply.ts` の import 先を差し替える
 4. `actions/demo.ts` も同様に差し替える（デモは体験者のキーを使う）
 
@@ -255,7 +255,7 @@ NODE_PATH="$(pwd)/node_modules" node _verify.local/verify-scenario3.js
 
 ### 現在の設定と本番移行時の判断
 
-`temperature: 0.1` は判定のぶれ対策（0.2では同じ質問でエスカレーション判定が割れた）。`thinkingConfig: { thinkingBudget: 0 }` は2.5 Flashの思考トークンを止めて15秒枠に収めるため。
+`temperature: 0.1` は判定のぶれ対策（0.2では同じ質問でエスカレーション判定が割れた）。`thinkingConfig: { thinkingBudget: 0 }` は2.5 Flashの思考トークンを止めて制限時間内に収めるため。
 
 **Gemini無料枠は日次20リクエスト・分次5リクエストの2段構え。** 本番運用には足りないため、有料プランへの切り替えを検討すること。日次枠のリセットは日本時間16:00。枠切れ時は「担当者に接続しています。」というフォールバック文言が出る（AIは動いていない）。
 
@@ -289,7 +289,7 @@ React の state だけだとリロードで選択肢が消え、「担当者へ�
 
 **3. AI応答の前後で status は変わりうる**
 
-`resolveAiReply` は最大15秒かかる。その間に顧客が「担当者へつなぐ」を押すと会話は `waiting_operator` になっている。冒頭で読んだ status を信じて書くと、引き継ぎ案内の直後にAIの回答が差し込まれる。`actions/chat.ts` は書き込む前に `requireOwnedConversation()` で status を取り直している。**この再確認を消すと再発する。**
+`resolveAiReply` は最大30秒かかる。その間に顧客が「担当者へつなぐ」を押すと会話は `waiting_operator` になっている。冒頭で読んだ status を信じて書くと、引き継ぎ案内の直後にAIの回答が差し込まれる。`actions/chat.ts` は書き込む前に `requireOwnedConversation()` で status を取り直している。**この再確認を消すと再発する。**
 
 **4. `setConversationStatus` は `pending_handoff` も必ず false にする**
 

@@ -6,7 +6,7 @@ import { AlertIcon, ClockIcon, InfoIcon, LeafIcon } from '@/components/icons';
 /**
  * AI応答待ちのタイピングインジケーター（T-21・FR-CUS-004）
  *
- * AIの応答は最大15秒かかる。何も出さないと固まったように見えて
+ * AIの応答は最大30秒かかる。何も出さないと固まったように見えて
  * 顧客が何度も送信してしまうため、処理中であることを必ず示す。
  */
 export function TypingIndicator() {

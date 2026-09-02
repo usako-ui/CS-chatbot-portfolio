@@ -70,7 +70,7 @@ let ng = 0;
 for (const [index, [no, message, expectEscalate]] of scenarios.entries()) {
   if (index > 0) await sleep(REQUEST_INTERVAL_MS);
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15000);
+  const timer = setTimeout(() => controller.abort(), 30000);
   const started = Date.now();
   try {
     const res = await ai.models.generateContent({

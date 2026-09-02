@@ -77,7 +77,7 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
   const [isSending, setIsSending] = useState(false);
   /**
    * 送信直後のクールダウン（連打対策）。
-   * AIの応答は最大15秒かかるため、返事が来ないと感じた顧客が
+   * AIの応答は最大30秒かかるため、返事が来ないと感じた顧客が
    * 何度も送信ボタンを押しやすい。押した分だけGemini APIを消費し、
    * 同じ質問が会話に並んでオペレーターの確認も煩雑になる。
    */
@@ -350,7 +350,7 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
           !messages.some((m) => m.sender_type === 'operator') && (
             <HandoffChoice
               text={HANDOFF_OFFER_TEXT}
-              // 送信中も押せないようにする。AI応答は最大15秒かかり、その間も
+              // 送信中も押せないようにする。AI応答は最大30秒かかり、その間も
               // 前のターンの選択カードは画面に残る。ここで押せてしまうと
               // 「承りました。担当者からご返信いたします」の後にAIの回答が届き、
               // 引き継ぎ後はAIを停止するという取り決めが崩れる

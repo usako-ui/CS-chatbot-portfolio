@@ -146,7 +146,7 @@ export async function sendCustomerMessage(
   const aiResponse = await resolveAiReply(message, history);
 
   // ---- 書き込む前に status を取り直す ----
-  // 冒頭で読んだ status は、AI応答を待つ最大15秒の間に古くなっている。
+  // 冒頭で読んだ status は、AI応答を待つ最大30秒の間に古くなっている。
   // その間に顧客が「担当者へつなぐ」を押していると会話は waiting_operator になっており、
   // 確認せずに書くと「承りました。担当者からご返信いたします」の直後に
   // AIの回答が差し込まれる。
