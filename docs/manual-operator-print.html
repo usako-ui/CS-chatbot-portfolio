@@ -168,6 +168,7 @@
 
   /* ---- 完了操作の強調 ---- */
   .done {
+    margin: 1.5mm 0 0;
     background: var(--accent);
     border-left: 2.5mm solid var(--primary);
     border-radius: 1.2mm;
@@ -227,11 +228,19 @@
   }
   .warn strong { color: #7c4a03; }
 
-  /* ---- Q&A ---- */
-  .qa { border-top: .6pt solid var(--line); }
+  /* ---- Q&A ----
+     項目数が増えたためA4 1枚に収まらなくなった。
+     1項目が短いので2段に流して縦を半分に近づける */
+  .qa {
+    border-top: .6pt solid var(--line);
+    column-count: 2;
+    column-gap: 5mm;
+  }
   .qa .item {
     border-bottom: .6pt solid var(--line);
-    padding: 1.5mm 1mm;
+    padding: 1.2mm 1mm;
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
   }
   .qa .q {
     font-weight: 700;
@@ -349,7 +358,7 @@
   </section>
 
   <section>
-    <h2><span class="no">2</span>返信の手順</h2>
+    <h2><span class="no">2</span>返信から対応完了まで</h2>
     <div class="body">
       <ol class="steps">
         <li>左の一覧から問い合わせをクリックします。</li>
@@ -359,12 +368,6 @@
           <span class="hint">改行したいときは Shift + Enter</span>
         </li>
       </ol>
-    </div>
-  </section>
-
-  <section>
-    <h2><span class="no">3</span>対応完了の操作</h2>
-    <div class="body">
       <p class="done">
         解決したら、右上の<span class="btn">対応完了</span>ボタンをクリックします。
       </p>
@@ -372,7 +375,7 @@
   </section>
 
   <section>
-    <h2><span class="no">4</span>本日休業フラグの正しい使い方</h2>
+    <h2><span class="no">3</span>本日休業フラグの正しい使い方</h2>
     <div class="body">
       <p class="lead">
         画面右上のボタンで切り替えます（<span class="tag on">本日対応中</span>＝通常営業／<span class="tag off">本日休業</span>＝営業時間内でも時間外と表示）。
@@ -404,7 +407,7 @@
   </section>
 
   <section>
-    <h2><span class="no">5</span>よくあるトラブルと対処法</h2>
+    <h2><span class="no">4</span>よくあるトラブルと対処法</h2>
     <div class="body qa">
       <div class="item">
         <p class="q">チャットの一覧が表示されない</p>
@@ -417,6 +420,14 @@
       <div class="item">
         <p class="q">新着の問い合わせが自動で表示されない</p>
         <p class="a">ページを再読み込みしてください。長時間操作しないと自動更新が止まることがあります。</p>
+      </div>
+      <div class="item">
+        <p class="q">お客様の画面に「担当者に接続しています。」と出ている</p>
+        <p class="a">AIが動かなかった合図です（AIの回答ではありません）。問い合わせは届いているので通常どおり返信してください。</p>
+      </div>
+      <div class="item">
+        <p class="q">返信したのにお客様の画面に出ない</p>
+        <p class="a">お客様がチャットを閉じているだけです。次に開いたとき表示されます。<strong>読まれる前に「対応完了」にすると履歴が消えます。</strong></p>
       </div>
       <div class="item">
         <p class="q">ログインできない</p>
