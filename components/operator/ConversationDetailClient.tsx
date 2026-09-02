@@ -66,6 +66,8 @@ export function ConversationDetailClient({
   const [reply, setReply] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  // 完了は取り消せない。押し間違いの実害が大きいので確認を挟む
+  const [isConfirmingClose, setIsConfirmingClose] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -137,6 +139,7 @@ export function ConversationDetailClient({
   }
 
   async function handleClose() {
+    setIsConfirmingClose(false);
     setIsClosing(true);
     setError(null);
     try {
@@ -241,7 +244,7 @@ export function ConversationDetailClient({
             {canClose && (
               <button
                 type="button"
-                onClick={() => void handleClose()}
+                onClick={() => setIsConfirmingClose(true)}
                 disabled={isClosing}
                 className="flex items-center gap-1.5 rounded-lg border border-brand-primary px-3 py-1.5 text-[13px] font-medium text-brand-primary transition-colors hover:bg-brand-primary hover:text-white disabled:opacity-50"
               >
@@ -252,6 +255,55 @@ export function ConversationDetailClient({
           </div>
         </div>
       </div>
+
+      {/* 完了の確認ダイアログ。
+          window.confirm を使わないのは、ボタンの文言をOSに委ねると
+          「OK」としか出せず、何が起きるのか読み取れないため */}
+      {isConfirmingClose && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-text/40 px-5">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="close-confirm-title"
+            className="w-full max-w-sm rounded-2xl border border-brand-accent bg-white p-6 shadow-xl"
+          >
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 rounded-full bg-amber-100 p-2 text-amber-700">
+                <AlertIcon size={20} />
+              </span>
+              <div className="flex-1">
+                <h2
+                  id="close-confirm-title"
+                  className="text-[16px] font-bold text-brand-text"
+                >
+                  対応完了にしますか？
+                </h2>
+                <p className="mt-1.5 text-[13px] leading-relaxed text-brand-secondary">
+                  完了後はお客様への返信内容が読めなくなる場合があります。
+                  よろしいですか？
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setIsConfirmingClose(false)}
+                className="flex-1 rounded-lg border border-brand-accent py-2.5 text-[14px] text-brand-secondary transition-colors hover:bg-brand-sand"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleClose()}
+                className="flex-1 rounded-lg bg-brand-primary py-2.5 text-[14px] font-medium text-white transition-opacity hover:opacity-90"
+              >
+                対応完了
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* メッセージ一覧（AI含む全履歴：AC-013） */}
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-6 py-5">
