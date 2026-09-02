@@ -87,11 +87,16 @@ flowchart LR
 | URL | 用途 | 認証 | DB保存 | Gemini |
 |---|---|---|---|---|
 | `/` | 紹介ページ（ランディング） | なし | なし | 使わない |
-| `/botanica` | **本番チャット**。ECサイト埋め込みの想定 | 匿名サインイン | **あり** | 開発者のキー |
+| （本番チャット）※1 | ECサイト埋め込みの想定 | 匿名サインイン | **あり** | 開発者のキー |
 | `/demo-ec` | 体験用デモ | なし | **なし** | **体験者が入力したキー** |
 | `/login` `/dashboard` `/faq` `/settings` | 管理画面 | メール＋パスワード | あり | 使わない |
 
-> `/chat` は `next.config.mjs` の `redirects()` で `/botanica` へ307転送しています。
+> **※1 本番チャットのURLはこの公開ドキュメントには記載していません。**
+> 開発者のGemini APIキー（無料枠）で動くため、不特定多数のアクセスで枠を使い切られるのを避けています。
+> トップページからもリンクを張っていません。実際のパスは `next.config.mjs` の
+> `redirects()` と `app/` のディレクトリを参照してください。
+>
+> `/chat` は `next.config.mjs` の `redirects()` で本番チャットへ307転送しています。
 > middleware ではなくここで処理しているのは、middleware の matcher に足すと
 > 匿名サインイン前のアクセスにも Auth 問い合わせが走るためです。静的な転送に認証は不要です。
 
@@ -272,7 +277,9 @@ Route Group で3系統に分けています。カッコ書きの階層名はURL�
 app/
 ├── page.tsx                          ランディング（紹介ページ）
 ├── layout.tsx                        ルートレイアウト
-├── (botanica)/botanica/page.tsx      本番チャット（匿名サインイン・DB保存あり）
+├── (**本番チャット**)/…/page.tsx     本番チャット（匿名サインイン・DB保存あり）
+│                                     ※URLは公開ドキュメントに書かない方針。
+│                                     　実際の名前は app/ を参照
 ├── (demo-ec)/demo-ec/page.tsx        体験デモ（体験者のAPIキー・DB保存なし）
 └── (operator)/
     ├── layout.tsx                    管理画面グループ（シェルは各ページ側で使う）
@@ -359,7 +366,7 @@ operator/   管理画面
             OpenTodayToggle・WaitingModal・StatusBadge
             useOperatorRealtime.ts が管理側の Realtime 購読
 landing/    ランディング専用（モックUI含む）
-store/      StoreFront.tsx を /botanica と /demo-ec で共有
+store/      StoreFront.tsx を本番チャットと /demo-ec で共有
 icons/      SVG線アイコン（外部アイコンライブラリ・絵文字は使わない方針）
 ```
 
