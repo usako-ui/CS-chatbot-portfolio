@@ -44,37 +44,33 @@
 ### システム構成
 
 ```mermaid
-flowchart LR
+flowchart TB
   subgraph BR["ブラウザ"]
     C["顧客<br/>チャットウィジェット"]
     O["オペレーター<br/>管理画面"]
   end
 
   subgraph VC["Vercel / Next.js 15"]
-    PG["ページ<br/>App Router"]
-    SA["Server Actions<br/>service_role で実行"]
+    SA["Server Actions<br/>service_role"]
   end
 
   subgraph SB["Supabase"]
-    AU["Auth"]
     DB[("PostgreSQL<br/>RLS 有効")]
     RT["Realtime"]
   end
 
   GM["Gemini 2.5 Flash"]
 
-  C -->|"書き込みは必ず<br/>Server Action 経由"| SA
+  C -->|"書き込みは<br/>必ずここ経由"| SA
   O --> SA
-  C --> PG
-  O --> PG
-  SA -->|"読み書き"| DB
+  SA --> DB
   SA -->|"AI応答"| GM
-  DB -->|"INSERT を通知"| RT
-  RT -->|"新着メッセージ"| C
-  RT -->|"新着メッセージ"| O
-  C -.->|"匿名サインイン"| AU
-  O -.->|"メール＋パスワード"| AU
+  DB -->|"INSERT"| RT
+  RT -->|"新着"| C
+  RT -->|"新着"| O
 ```
+
+認証はSupabase Authで、**顧客は匿名サインイン・オペレーターはメール＋パスワード**と経路を分けています。
 
 **設計の要点は3つです。**
 
@@ -111,33 +107,23 @@ flowchart LR
 sequenceDiagram
     autonumber
     participant C as 顧客ブラウザ
-    participant A as "Server Action<br/>actions/chat.ts"
+    participant A as Server Action
     participant D as Supabase DB
     participant G as Gemini
-    participant O as オペレーター画面
 
     C->>A: sendCustomerMessage(text)
-    A->>A: requireCustomerId()<br/>Cookie の JWT を検証
-    A->>D: requireOwnedConversation()<br/>会話の所有権を突合
-    A->>D: 顧客メッセージを保存
-    A->>D: 有効な FAQ を取得
-    A->>G: resolveAiReply()<br/>最大30秒
+    A->>A: 本人確認と会話の所有権チェック
+    A->>D: 顧客メッセージを保存・有効なFAQを取得
+    A->>G: AIへ問い合わせ（最大30秒）
     G-->>A: {answer, action, reason}
-
-    Note over A,D: 書き込む前に status を取り直す<br/>（待っている間に顧客が引き継ぎを押した可能性）
-
-    A->>D: AIメッセージを保存
-    alt action = escalate
-        A->>D: status を waiting_operator へ
-        D-->>O: Realtime で一覧に反映
-    else action = handoff_offer
-        A->>D: pending_handoff = true
-        Note over C: 顧客に選択肢を出す
-    else action = answer
-        Note over A: ステータスは ai_handling のまま
-    end
+    A->>D: status を取り直す（待つ間に変わりうる）
+    A->>D: AIメッセージを保存・status と選択待ちを更新
     A-->>C: 表示用のテキストを返す
 ```
+
+- **6番が重要です。** AI応答を待つ最大30秒の間に顧客が「担当者へつなぐ」を押していることがあります。冒頭で読んだ status を信じて書くと、引き継ぎ案内の直後にAIの回答が差し込まれます。
+- `action` による分岐（`answer` / `handoff_offer` / `escalate`）は[3章](#3-エスカレーションの分岐)を参照してください。
+- `escalate` のときは `waiting_operator` になり、Realtime でオペレーターの一覧に反映されます。
 
 担当者が返信したときは逆向きです。`actions/operator.ts` が `messages` に INSERT → Supabase Realtime が顧客ブラウザへ push → `useConversationMessages.ts` が受け取って吹き出しを追加します。
 
@@ -150,37 +136,33 @@ sequenceDiagram
 ### 判定フロー
 
 ```mermaid
-flowchart TD
-    S["顧客のメッセージ"] --> Q1{"クレーム・お怒り・<br/>不満のトーンか？"}
-    Q1 -->|Yes| E1["escalate<br/>reason: クレーム"]
-    Q1 -->|No| Q2{"特定の注文・請求・配送の<br/>個別照会／個人情報の変更か？"}
-    Q2 -->|Yes| E2["escalate<br/>reason: 人間対応必須"]
-    Q2 -->|No| Q3{"FAQに根拠があるか？"}
-    Q3 -->|"No"| E3["escalate<br/>reason: FAQ外"]
-    Q3 -->|Yes| Q4{"解決に個別の手続きが<br/>必要か？<br/>（返品・交換の受付など）"}
-    Q4 -->|Yes| H["handoff_offer<br/>FAQ案内＋お詫び＋選択肢"]
+flowchart LR
+    S["顧客の<br/>発言"] --> Q1{"クレーム<br/>か？"}
+    Q1 -->|Yes| E1["escalate<br/>クレーム"]
+    Q1 -->|No| Q2{"個別照会<br/>か？"}
+    Q2 -->|Yes| E2["escalate<br/>人間対応必須"]
+    Q2 -->|No| Q3{"FAQに<br/>根拠は？"}
+    Q3 -->|"無い"| E3["escalate<br/>FAQ外"]
+    Q3 -->|"有る"| Q4{"手続きも<br/>必要か？"}
+    Q4 -->|Yes| H["handoff_offer<br/>案内＋選択肢"]
     Q4 -->|No| AN["answer<br/>AIだけで完結"]
 
-    H --> Q5{"顧客の選択"}
-    Q5 -->|"担当者へつなぐ"| W["waiting_operator へ"]
-    Q5 -->|"続けて質問する"| AN2["ai_handling のまま継続"]
-
-    E1 --> W
-    E2 --> W
-    E3 --> W
-
-    X["Gemini がエラー・<br/>タイムアウト"] -.->|"アプリ側で付与"| E4["escalate<br/>reason: AIエラー"]
-    E4 --> W
-
     style AN fill:#d8f3dc,stroke:#2d6a4f
-    style AN2 fill:#d8f3dc,stroke:#2d6a4f
     style H fill:#ffe8b3,stroke:#d9a441
-    style W fill:#ffd6d6,stroke:#a13d2d
-    style E4 fill:#eeeeee,stroke:#888888
+    style E1 fill:#ffd6d6,stroke:#a13d2d
+    style E2 fill:#ffd6d6,stroke:#a13d2d
+    style E3 fill:#ffd6d6,stroke:#a13d2d
 ```
 
 > **迷ったときは安全側（`escalate` > `handoff_offer` > `answer`）へ倒す**方針をプロンプトに明記しています。
 > 判定ルールの本体は `lib/prompt.ts` の【対応方針の判定】です。
+>
+> 図に無い経路がもう1本あります。**Gemini がエラー・タイムアウトになった場合**は、
+> AIの判断を経ずにアプリ側が `escalate` / `AIエラー` を付けます。
+>
+> **赤（escalate）は `waiting_operator` へ進みます。** `handoff_offer` は顧客が
+> 「担当者へつなぐ」を選んだときだけ `waiting_operator` になり、
+> 「続けて質問する」なら `ai_handling` のまま続きます（→[会話ステータスの遷移](#会話ステータスの遷移)）。
 
 ### なぜ3値なのか（ソフトエスカレーションを入れた理由）
 
@@ -230,17 +212,10 @@ stateDiagram-v2
     waiting_operator --> operator_handling: 担当者が最初の返信<br/>（返信した人が自動で担当に）
     operator_handling --> closed: 「対応完了」<br/>※確認ダイアログあり
     ai_handling --> closed: pg_cron が自動クローズ<br/>最終メッセージから24時間
-
-    note right of waiting_operator
-      自動クローズしない。
-      放置を色分けとバッジで気づかせる
-    end note
-
-    note right of closed
-      顧客側では新しい問い合わせとして
-      始まる（過去履歴は表示されない）
-    end note
 ```
+
+> - `waiting_operator` は**自動クローズしません。** 放置を色分けとバッジで気づかせます。
+> - `closed` にすると顧客側では**新しい問い合わせとして始まり**、過去履歴は表示されません。
 
 | 遷移 | 実装 | 制約 |
 |---|---|---|
@@ -416,18 +391,11 @@ grep -rl "<キーの値>" .next/static   # 何も出なければOK
 
 顧客にも **Supabase匿名サインイン** でJWTを発行し、`auth.uid()` で識別します。当初案の `customer_session_id`（クライアントが自由に名乗れる文字列）はRLSの識別子として機能しないため廃止しました。
 
-```mermaid
-flowchart TD
-    R["リクエスト到着"] --> J{"JWT がある？"}
-    J -->|"No"| ANON["ロール: anon<br/>有効なFAQの読み取りのみ"]
-    J -->|"Yes"| ROLE["ロール: authenticated<br/>※匿名サインインでもここ"]
-    ROLE --> IS{"private.is_operator()"}
-    IS -->|"is_anonymous = false"| OP["オペレーター<br/>全テーブル ALL 許可"]
-    IS -->|"is_anonymous = true<br/>またはクレーム欠落"| CU["顧客<br/>自分の会話のみ SELECT"]
-
-    style OP fill:#ffd6d6,stroke:#a13d2d
-    style CU fill:#d8f3dc,stroke:#2d6a4f
-```
+| リクエスト | Postgres ロール | できること |
+|---|---|---|
+| JWTなし | `anon` | 有効なFAQの読み取りのみ |
+| 匿名サインインの顧客 | **`authenticated`** | 自分の会話の SELECT のみ |
+| オペレーター | **`authenticated`** | 全テーブル ALL |
 
 > **最重要：匿名サインインしたユーザーの Postgres ロールは `anon` ではなく `authenticated` です。**
 > そのため `auth.role() = 'authenticated'` をオペレーター判定に使うと、
@@ -496,23 +464,15 @@ WHERE schemaname = 'public' ORDER BY tablename, policyname;
 
 ```mermaid
 stateDiagram-v2
+    direction LR
     [*] --> connecting: 購読開始
     connecting --> connected: SUBSCRIBED
     connected --> reconnecting: CHANNEL_ERROR<br/>TIMED_OUT
-    reconnecting --> connected: SUBSCRIBED<br/>（クライアントが自動再試行）
-
-    note right of connected
-      SUBSCRIBED を受けた時点で
-      サーバーから取り直す。
-      切断中に届いた分もここで埋まる
-    end note
-
-    note right of reconnecting
-      顧客画面に
-      「接続が切れました。再接続しています...」
-      を表示するだけ
-    end note
+    reconnecting --> connected: SUBSCRIBED<br/>自動再試行
 ```
+
+> - `SUBSCRIBED` を受けた時点でサーバーから取り直します。**切断中に届いた分もここで埋まります。**
+> - `reconnecting` の間は顧客画面に「接続が切れました。再接続しています...」と出るだけです。
 
 **独自の再接続処理は書いていません。** Supabaseクライアントが自動で再試行します。このフックの責務は「接続状態を画面に見せること」と「`SUBSCRIBED` のたびに取りこぼしを回収すること」の2つだけです。
 
