@@ -367,8 +367,7 @@ stateDiagram-v2
 ├── types/          型定義（全エージェント参照用）
 ├── supabase/       seed.sql
 ├── scripts/        検証スクリプト（.mjs・Gemini直接）
-├── docs/           納品ドキュメント（公開）
-└── _verify.local/  Playwright検証スクリプト（Git管理外）
+└── docs/           納品ドキュメント（公開）
 ```
 
 ### ページ（`app/`）
@@ -561,11 +560,14 @@ $$;
 > **「0件返る」ことではなく「自分の1件だけ返る」ことを確認してください。**
 > 全拒否で壊れている状態を「安全」と誤読しないためです。
 
-```bash
-# 顧客側（匿名JWT 2人ぶんで相互に見えないことを確認）
-NODE_PATH="$(pwd)/node_modules" node _verify.local/pentest-operator.js
-NODE_PATH="$(pwd)/node_modules" node _verify.local/pentest-serveraction.js
-```
+確認する内容は次の4点です。
+
+| # | 確認すること | 期待する結果 |
+|---|---|---|
+| 1 | 匿名JWTで `conversations` を全件SELECTする | **自分の会話だけ**返る（0件でも全件でもない） |
+| 2 | 別の匿名JWTで同じことをする | 互いの会話が見えない |
+| 3 | Server Action に他人の `conversation_id` を渡す | 拒否される（`requireOwnedConversation()`） |
+| 4 | 匿名JWTで管理画面のデータを取りに行く | 拒否される（`private.is_operator()`） |
 
 現在のポリシー状態はSQLでも確認できます。
 
@@ -688,31 +690,23 @@ export const GEMINI_MODEL = 'gemini-2.5-flash';
 
 **プロンプトかモデルを変えたら、必ずこの順で確認してください。**
 
-> **検証スクリプト（`_verify.local/`）はこのリポジトリに含まれていません。**
-> 実行時にAPIキーと認証情報を読むため `.gitignore` 対象にしています。
-> **引き継ぎ時に別途お渡しします。** 手元に無い場合は、下表の「確認」の内容を
-> `docs/test-scenarios.md` の期待値と突き合わせて手動で確認してください。
+| # | 確認すること | 方法 | Gemini消費 |
+|---|---|---|---|
+| 1 | 型・Lint・ビルドが通る | `npx tsc --noEmit` → `npx next lint` → `rm -rf .next && npx next build` | 0 |
+| 2 | AI判定が変わっていない | `docs/test-scenarios.md` の8件を実際に送信し、期待値（answer / handoff_offer / escalate）と突き合わせる | 8 |
+| 3 | 判定がぶれない | 上記のうち判定が割れやすい1件を**3回連続**で送り、毎回同じ結果になるか見る | 3 |
+| 4 | 文言が正しく出し分けられる | クレーム・FAQ外・怒っていない個別依頼を送り、`lib/messages.ts` の対応表どおりの文言が出るか見る | 3 |
+| 5 | 本番で動く | デプロイ後に顧客チャットで1件送り、回答内容と担当者返信のRealtime反映を確認する | 1 |
 
-| # | 確認 | コマンド | 接続先 | Gemini消費 |
-|---|---|---|---|---|
-| 1 | 型・Lint・ビルド | `npx tsc --noEmit` → `npx next lint` → `rm -rf .next && npx next build` | — | 0 |
-| 2 | 判定ぶれ（#3を3回連続＋#4回帰） | `node _verify.local/verify-scenario3.js` | localhost | 4 |
-| 3 | 文言の出し分け（クレーム／FAQ外／個別依頼／選択後） | `node _verify.local/verify-escalation-copy.js` | localhost | 3 |
-| 4 | AI判定シナリオ8件（#7のみ時間外） | `node _verify.local/verify-ai-scenarios.js` | **本番** | 8 |
-| 5 | 本番の通し確認8項目 | `node _verify.local/verify-production.js` | **本番** | 1 |
-
-```bash
-npm install -D playwright     # 検証のたびに入れる
-npx next dev                  # localhost 向けスクリプトのときだけ必要
-NODE_PATH="$(pwd)/node_modules" node _verify.local/<script>.js
-npm uninstall playwright      # 終わったら外す
-```
-
-> **2〜5 を通すと16リクエスト消費します。無料枠は日次20なので1日1周が限度です。**
-> `verify-ai-scenarios.js` は営業設定を一時的に書き換えます（`finally` で初期値へ戻します）。
-> 途中で強制終了させた場合は、営業設定が10-18時に戻っているか必ず確認してください。
-> 日次枠のリセットは日本時間16:00、分次は5リクエストまで。
+> **2〜5 を通すと15リクエスト消費します。無料枠は日次20なので1日1周が限度です。**
+> 日次枠のリセットは日本時間16:00、分次は5リクエストまで。**25秒ほど間隔を空けて**送ってください。
 > 枠切れ時は「担当者に接続しています。」が出ます（AIは動いていません）。
+>
+> 営業時間外の挙動を確認するときは営業設定を一時的に変更します。
+> **確認後は必ず元の値（10-18時）に戻してください。**
+
+> 制作時はこれらを Playwright で自動化していましたが、
+> 実行時にAPIキーと認証情報を読むためリポジトリには含めていません。
 
 判定基準は `docs/test-scenarios.md` にあります。**AC-002・AC-003・AC-004 が落ちていないこと**が最低ラインです。
 
@@ -834,26 +828,19 @@ AGENTS.md と docs/manual-developer.md を読んで、現状を把握してか�
 | `docs/manual-developer-detail.md` | **このファイル。** 設計・RLS・Realtime・AI変更 | 対象 |
 | `requirements.md` | 機能要件・DBスキーマ・受入条件（AC-001〜AC-017） | 対象 |
 | `docs/test-scenarios.md` | AI判定の検証シナリオと期待値 | 対象 |
-| `CLAUDE.md` | ルール・技術スタック・禁止事項 | **対象外（ローカル）** |
-| `tasks.md` | タスク一覧・進行状態・引き継ぎ事項 | **対象外（ローカル）** |
-| `progress.md` | 作業ログ・「忘れると壊す」決定事項 | **対象外（ローカル）** |
-| `_operator-credentials.local.md` | オペレーターのログイン情報 | **対象外（ローカル）** |
+| `types/index.ts` | 型定義。`any` を使わずここを参照する | 対象 |
 
-> **`CLAUDE.md`・`tasks.md`・`progress.md`・認証情報は `.gitignore` 対象です。**
-> リポジトリをクローンしただけでは手に入りません。**引き継ぎ時に別途共有してください。**
+> **環境変数の実値とオペレーターのログイン情報はリポジトリに入っていません。**
+> 前者のキー名は `.env.example` にあります。後者は Supabase で新規作成できます
+> （手順は[クイックスタート](manual-developer.md)）。
 
-### 検証スクリプト
+### 受入条件の確認
 
-`_verify.local/` に Playwright ベースの検証スクリプトがあります（`.gitignore` 対象）。実行手順と各スクリプトのGemini消費量は `_verify.local/README.md` を参照してください。
+受入条件は `requirements.md` の AC-001〜AC-017 にあります。
+AI判定の期待値は `docs/test-scenarios.md` にまとまっています。
 
-| スクリプト | 用途 | 接続先 | Gemini |
-|---|---|---|---|
-| `verify-production.js` | 本番の通し確認8項目 | 本番 | 1 |
-| `verify-ai-scenarios.js` | AI判定シナリオ8件（#7のみ時間外） | 本番 | 8 |
-| `verify-escalation-copy.js` | エスカレーション文言の出し分け | localhost | 3 |
-| `verify-handoff-flow.js` | ソフトESCの選択フロー | localhost | 0 |
-| `verify-close-confirm.js` | 対応完了の確認ダイアログ | localhost | 0 |
-| `pentest-operator.js` / `pentest-serveraction.js` | RLS・権限の侵入テスト | localhost | 0 |
+**AC-012（顧客同士の情報分離）は必ず別ブラウザまたはシークレットウィンドウで確認してください。**
+同じブラウザだと同一の匿名ユーザーとして扱われ、確認になりません。
 
 ---
 
