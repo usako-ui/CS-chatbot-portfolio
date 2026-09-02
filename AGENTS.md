@@ -1,7 +1,8 @@
 # AGENTS.md
 
 AIコーディングエージェント向けの作業ルールです。人が読む資料は
-[`docs/manual-developer.md`](docs/manual-developer.md) にあります。
+[`docs/manual-developer.md`](docs/manual-developer.md)（クイックスタート）と
+[`docs/manual-developer-detail.md`](docs/manual-developer-detail.md)（詳細版）にあります。
 
 このファイルは「引き継いだAIが最初に読む1枚」として置いています。
 Claude Code の場合は、起動後に次のように指示すれば読み込めます。
@@ -32,12 +33,13 @@ AGENTS.md と docs/manual-developer.md を読んで、現状を把握してか�
 
 | 目的 | ファイル |
 |---|---|
-| 全体像・設計意図・図 | `docs/manual-developer.md` |
+| まず動かす・全体像をつかむ | `docs/manual-developer.md` |
+| 詳細設計・RLS・Realtime・AI変更手順 | `docs/manual-developer-detail.md` |
 | 機能要件・DBスキーマ・受入条件（AC-001〜AC-017） | `requirements.md` |
 | AI判定の検証シナリオと期待値 | `docs/test-scenarios.md` |
 | 型定義（`any` を使わずここを参照する） | `types/index.ts` |
 
-**`docs/manual-developer.md` の「9. 触ると壊れる箇所」は変更前に必ず読むこと。**
+**`docs/manual-developer-detail.md` の「9. 触ると壊れる箇所」は変更前に必ず読むこと。**
 過去に実際に踏んだ不具合が8件挙がっている。
 
 ---
@@ -88,7 +90,7 @@ rm -rf .next && npx next build    # ビルド
 **3つとも通ってから完了とすること。**
 
 AIの判定に関わる変更（`lib/prompt.ts`・`lib/gemini.ts`・`lib/messages.ts`）を
-した場合は、`docs/manual-developer.md` の
+した場合は、`docs/manual-developer-detail.md` の
 「8. AIモデル変更とリグレッションテスト」の手順も実行する。
 
 ---

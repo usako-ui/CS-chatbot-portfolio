@@ -179,8 +179,7 @@ AIが黙るくらいなら担当者につなぐほうが、顧客体験として
 - Gemini API キー（[Google AI Studio](https://aistudio.google.com/apikey)）
 
 > **初めてこのリポジトリを触る方は、
-> [開発者向け引き継ぎドキュメント](docs/manual-developer.md#はじめにローカルで動かす)の
-> 「はじめに：ローカルで動かす」を参照してください。**
+> [開発者向けクイックスタート](docs/manual-developer.md)を参照してください。**
 > DBのテーブル作成・Realtimeの有効化・オペレーターアカウントの作成まで含めた
 > 完全な手順があります。以下は概要です。
 
@@ -242,7 +241,8 @@ npm run build
 |---|---|---|
 | [オペレーター向け操作マニュアル](docs/manual-operator.md) | サポート担当者 | ログイン・返信・完了・営業時間設定 |
 | [FAQ編集者向けマニュアル](docs/manual-faq.md) | FAQ管理者 | FAQの追加・有効無効・良い書き方 |
-| [開発者向け引き継ぎドキュメント](docs/manual-developer.md) | エンジニア | 構成・RLS・Realtime・AIモデル変更 |
+| [開発者向けクイックスタート](docs/manual-developer.md) | エンジニア | 起動手順・よく使うコマンド・環境変数 |
+| [開発者向け引き継ぎドキュメント（詳細版）](docs/manual-developer-detail.md) | エンジニア | 構成・RLS・Realtime・AIモデル変更・用語集 |
 | [検証シナリオ](docs/test-scenarios.md) | エンジニア | AI判定の検証パターン |
 | [要件定義書](requirements.md) | 全員 | 機能要件・DBスキーマ・受入条件 |
 

@@ -352,4 +352,5 @@ AIだけで解決した問い合わせは、**最後のメッセージから24�
 ## 関連ドキュメント
 
 - [FAQ編集者向けマニュアル](manual-faq.md) — AIが答える内容を増やす・変更する
-- [開発者向け引き継ぎドキュメント](manual-developer.md) — システムの技術情報
+- [開発者向けクイックスタート](manual-developer.md) — 起動手順・環境変数
+- [開発者向け引き継ぎドキュメント（詳細版）](manual-developer-detail.md) — 設計・RLS・Realtime
