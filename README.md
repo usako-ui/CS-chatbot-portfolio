@@ -178,6 +178,12 @@ AIが黙るくらいなら担当者につなぐほうが、顧客体験として
 - Supabase プロジェクト
 - Gemini API キー（[Google AI Studio](https://aistudio.google.com/apikey)）
 
+> **初めてこのリポジトリを触る方は、
+> [開発者向け引き継ぎドキュメント](docs/manual-developer.md#はじめにローカルで動かす)の
+> 「はじめに：ローカルで動かす」を参照してください。**
+> DBのテーブル作成・Realtimeの有効化・オペレーターアカウントの作成まで含めた
+> 完全な手順があります。以下は概要です。
+
 ### 手順
 
 ```bash
