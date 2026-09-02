@@ -348,7 +348,7 @@ stateDiagram-v2
 | → `waiting_operator` | `actions/chat.ts` | 時間内・時間外どちらでも遷移する（時間外は通知しないだけ） |
 | → `operator_handling` | `sendOperatorReply()` | 未割当なら返信者を担当者に自動セット |
 | → `closed` | `closeConversation()` | **`operator_handling` からのみ。** 人が一度も見ていない問い合わせが消えるのを防ぐ |
-| 自動クローズ | `private.close_stale_ai_conversations()` | `cron.job` に `0 * * * *` で登録（毎時0分）。選択待ちは72時間まで猶予 |
+| 自動クローズ | `private.close_stale_ai_conversations()` | `supabase/cron.sql` で作成。`0 * * * *`（毎時0分）。選択待ちは72時間まで猶予 |
 
 > **`closed` は一方通行です。** 戻す機能はありません（→[10章](#10-本番移行時の残作業)の改善提案）。
 
@@ -365,7 +365,7 @@ stateDiagram-v2
 ├── lib/            ドメインロジック・外部接続
 ├── components/     Reactコンポーネント
 ├── types/          型定義（全エージェント参照用）
-├── supabase/       seed.sql
+├── supabase/       seed.sql（FAQ初期データ）・cron.sql（自動クローズ）
 ├── scripts/        検証スクリプト（.mjs・Gemini直接）
 └── docs/           納品ドキュメント（公開）
 ```
