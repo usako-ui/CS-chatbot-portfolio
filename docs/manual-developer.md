@@ -43,32 +43,28 @@
 
 ### システム構成
 
+**書き込み**は必ず Server Action を通ります。
+
 ```mermaid
-flowchart TB
-  subgraph BR["ブラウザ"]
-    C["顧客<br/>チャットウィジェット"]
-    O["オペレーター<br/>管理画面"]
-  end
-
-  subgraph VC["Vercel / Next.js 15"]
-    SA["Server Actions<br/>service_role"]
-  end
-
-  subgraph SB["Supabase"]
-    DB[("PostgreSQL<br/>RLS 有効")]
-    RT["Realtime"]
-  end
-
-  GM["Gemini 2.5 Flash"]
-
-  C -->|"書き込みは<br/>必ずここ経由"| SA
-  O --> SA
-  SA --> DB
-  SA -->|"AI応答"| GM
-  DB -->|"INSERT"| RT
-  RT -->|"新着"| C
-  RT -->|"新着"| O
+flowchart LR
+    C["顧客<br/>チャットウィジェット"] --> SA["Server Actions（Vercel）<br/>service_role で実行"]
+    O["オペレーター<br/>管理画面"] --> SA
+    SA -->|"読み書き"| DB[("Supabase PostgreSQL<br/>RLS 有効")]
+    SA -->|"AI応答"| GM["Gemini 2.5 Flash"]
 ```
+
+**画面への反映**は Realtime が担います。
+
+```mermaid
+flowchart LR
+    DB[("Supabase PostgreSQL")] -->|"INSERT を通知"| RT["Supabase Realtime"]
+    RT -->|"新着"| C["顧客<br/>チャットウィジェット"]
+    RT -->|"新着"| O["オペレーター<br/>管理画面"]
+```
+
+
+**この2枚が構成のすべてです。** 書き込みは一方通行、反映も一方通行で、
+両者が交わるのは Supabase の中だけです。
 
 認証はSupabase Authで、**顧客は匿名サインイン・オペレーターはメール＋パスワード**と経路を分けています。
 
