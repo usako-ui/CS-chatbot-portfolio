@@ -12,9 +12,8 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { FAQ_SNAPSHOT } from '@/lib/faqSnapshot';
+import { DEMO_FAQS } from '@/lib/demoFaq';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { getSupabaseAnon } from '@/lib/supabase/anon';
 import type { Database } from '@/types/database';
 import type { FAQ, FAQCategory } from '@/types';
 
@@ -66,29 +65,22 @@ export async function getActiveFaqs(): Promise<FAQ[]> {
 }
 
 /**
- * 有効なFAQを anon 権限で全件取得する（デモモード専用）。
+ * デモ用のFAQを返す（体験デモ専用）。
  *
- * デモは認証を通さない導線のため service_role を使わない。
- * FAQ は RLS で anon に読み取りだけ許可されている公開情報であり、
- * 万一ここを書き間違えても RLS が最後の砦として効く。
+ * **DBを見ない。** lib/demoFaq.ts の組み込みデータをそのまま返す。
  *
- * 【本番と違い、失敗しても例外を投げない】
- * デモはDBに一切書き込まないが、FAQの取得だけはDBに依存している。
- * 講座提出後に Supabase を削除したり、無料枠のプロジェクトが自動停止すると、
- * それだけでデモが動かなくなる。体験導線は残したいので、
- * 読めなかった場合はスナップショット（lib/faqSnapshot.ts）へ倒す。
+ * デモは体験者自身のAPIキーで動く公開導線で、DBには一切書き込まない。
+ * 読み取りだけDBに依存させると、Supabaseプロジェクトの停止・削除で
+ * デモまで動かなくなる。常に触れる状態を保つため依存を切ってある。
  *
- * 本番の顧客チャット（getActiveFaqs）はこの回避をしない。
- * 実データと食い違ったまま顧客に答えるほうが害が大きいため、
- * 従来どおり例外を投げてエスカレーションさせる。
+ * 本番の顧客チャット（getActiveFaqs）はDBから読む。
+ * 管理画面でのFAQ追加・無効化が即座に反映される必要があるため。
+ *
+ * async のままにしているのは呼び出し側（actions/demo.ts）の
+ * インターフェースを変えないため。将来DBに戻す余地も残る。
  */
 export async function getActiveFaqsForDemo(): Promise<FAQ[]> {
-  try {
-    return await fetchActiveFaqs(getSupabaseAnon());
-  } catch (error) {
-    console.error('[getActiveFaqsForDemo] DBから取得できずスナップショットを使用:', error);
-    return [...FAQ_SNAPSHOT];
-  }
+  return [...DEMO_FAQS];
 }
 
 /**
