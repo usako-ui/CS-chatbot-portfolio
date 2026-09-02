@@ -12,6 +12,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { FAQ_SNAPSHOT } from '@/lib/faqSnapshot';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { getSupabaseAnon } from '@/lib/supabase/anon';
 import type { Database } from '@/types/database';
@@ -71,10 +72,23 @@ export async function getActiveFaqs(): Promise<FAQ[]> {
  * FAQ は RLS で anon に読み取りだけ許可されている公開情報であり、
  * 万一ここを書き間違えても RLS が最後の砦として効く。
  *
- * @throws DB接続・クエリに失敗した場合。呼び出し側はエスカレーションへ倒す
+ * 【本番と違い、失敗しても例外を投げない】
+ * デモはDBに一切書き込まないが、FAQの取得だけはDBに依存している。
+ * 講座提出後に Supabase を削除したり、無料枠のプロジェクトが自動停止すると、
+ * それだけでデモが動かなくなる。体験導線は残したいので、
+ * 読めなかった場合はスナップショット（lib/faqSnapshot.ts）へ倒す。
+ *
+ * 本番の顧客チャット（getActiveFaqs）はこの回避をしない。
+ * 実データと食い違ったまま顧客に答えるほうが害が大きいため、
+ * 従来どおり例外を投げてエスカレーションさせる。
  */
 export async function getActiveFaqsForDemo(): Promise<FAQ[]> {
-  return fetchActiveFaqs(getSupabaseAnon());
+  try {
+    return await fetchActiveFaqs(getSupabaseAnon());
+  } catch (error) {
+    console.error('[getActiveFaqsForDemo] DBから取得できずスナップショットを使用:', error);
+    return [...FAQ_SNAPSHOT];
+  }
 }
 
 /**

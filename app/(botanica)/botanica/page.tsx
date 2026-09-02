@@ -13,7 +13,23 @@
  * 公開のデモ導線は /demo-ec（体験者自身のAPIキーで動く・DB保存なし）。
  */
 import { ChatWidget } from '@/components/chat/ChatWidget';
+import { ClosedNotice } from '@/components/chat/ClosedNotice';
 import { StoreFront } from '@/components/store/StoreFront';
+
+/**
+ * 受付を終了しているか。
+ *
+ * 講座提出後は Gemini のAPIキーを外して無料枠を守る運用にしている。
+ * キーが無いままチャットを開かせると「担当者に接続しています。」しか返らず、
+ * 誰も見ていない管理画面に会話だけが溜まる。
+ * この環境変数を立てておけば、チャットを起動せずに案内で止められる。
+ *
+ * Vercel の環境変数に LIVE_CHAT_CLOSED=1 を足して再デプロイすると有効になる。
+ * 外して再デプロイすれば元に戻せる。
+ * NEXT_PUBLIC_ を付けないのは、ブラウザに配る必要がないため
+ * （このページはサーバーコンポーネント）。
+ */
+const isClosed = process.env.LIVE_CHAT_CLOSED === '1';
 
 export const metadata = {
   title: 'BOTANICA カスタマーサポート',
@@ -24,6 +40,8 @@ export const metadata = {
 };
 
 export default function BotanicaPage() {
+  if (isClosed) return <ClosedNotice />;
+
   return (
     <StoreFront
       notice={
