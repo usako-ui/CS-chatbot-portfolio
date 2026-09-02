@@ -34,7 +34,7 @@
                  "Meiryo", sans-serif;
     color: var(--text);
     background: #eceff1;
-    line-height: 1.6;
+    line-height: 1.45;
     font-size: 10.5pt;
   }
 
@@ -55,8 +55,8 @@
     justify-content: space-between;
     gap: 10mm;
     border-bottom: 2.5pt solid var(--primary);
-    padding-bottom: 3mm;
-    margin-bottom: 6mm;
+    padding-bottom: 2.5mm;
+    margin-bottom: 4.5mm;
   }
   .head h1 {
     font-size: 17pt;
@@ -86,15 +86,15 @@
   }
 
   /* ---- セクション ---- */
-  section { margin-bottom: 5.5mm; }
+  section { margin-bottom: 3.2mm; }
 
   h2 {
     font-size: 11pt;
     font-weight: 700;
     color: #fff;
     background: var(--primary);
-    margin: 0 0 3mm;
-    padding: 1.6mm 3mm;
+    margin: 0 0 2mm;
+    padding: 1.1mm 3mm;
     border-radius: 1.2mm;
     display: flex;
     align-items: baseline;
@@ -117,8 +117,8 @@
     background: var(--sand);
     border: .6pt solid var(--line);
     border-radius: 1.2mm;
-    padding: 2.5mm 3mm;
-    margin-bottom: 2.5mm;
+    padding: 2mm 3mm;
+    margin-bottom: 2mm;
   }
   .url-row .label {
     font-size: 9pt;
@@ -143,7 +143,7 @@
     counter-increment: step;
     position: relative;
     padding-left: 8mm;
-    margin-bottom: 1.8mm;
+    margin-bottom: 1.2mm;
   }
   ol.steps li::before {
     content: counter(step);
@@ -171,7 +171,7 @@
     background: var(--accent);
     border-left: 2.5mm solid var(--primary);
     border-radius: 1.2mm;
-    padding: 3mm 4mm;
+    padding: 2.2mm 3.5mm;
     font-weight: 500;
   }
   .done .btn {
@@ -185,22 +185,64 @@
     margin: 0 .5mm;
   }
 
+  /* ---- 本日休業（状態バッジと 使う/使わない の対比）----
+     A4 1枚に収める必要があるため、縦に積まず2段組みで並べる */
+  p.lead { margin: 0 0 2.2mm; font-size: 9.5pt; }
+
+  .tag {
+    display: inline-block;
+    font-size: 8.5pt;
+    font-weight: 700;
+    border-radius: 1mm;
+    padding: .3mm 1.8mm;
+  }
+  .tag.on { background: var(--accent); color: var(--primary); }
+  .tag.off { background: #fde3a7; color: #7c4a03; }
+
+  .cols { display: flex; gap: 3mm; }
+  .cols .col {
+    flex: 1;
+    border: .6pt solid var(--line);
+    border-radius: 1.2mm;
+    padding: 1.6mm 2.2mm;
+  }
+  .cols h3 {
+    font-size: 9.5pt;
+    font-weight: 700;
+    margin: 0 0 1.2mm;
+  }
+  .cols .ok h3 { color: var(--primary); }
+  .cols .ng h3 { color: #a13d2d; }
+  .cols ul { margin: 0; padding-left: 4mm; font-size: 9pt; }
+  .cols li { margin-bottom: .7mm; }
+  .cols .note { margin: 1.2mm 0 0; font-size: 8.5pt; color: var(--secondary); }
+
+  .warn {
+    margin: 1.8mm 0 0;
+    background: #fff8e6;
+    border-left: 2.5mm solid #d9a441;
+    border-radius: 1.2mm;
+    padding: 1.8mm 2.8mm;
+    font-size: 9pt;
+  }
+  .warn strong { color: #7c4a03; }
+
   /* ---- Q&A ---- */
   .qa { border-top: .6pt solid var(--line); }
   .qa .item {
     border-bottom: .6pt solid var(--line);
-    padding: 2.2mm 1mm;
+    padding: 1.5mm 1mm;
   }
   .qa .q {
     font-weight: 700;
-    font-size: 10pt;
+    font-size: 9.5pt;
     margin: 0 0 .8mm;
     padding-left: 6.5mm;
     position: relative;
   }
   .qa .a {
     margin: 0;
-    font-size: 9.5pt;
+    font-size: 9pt;
     padding-left: 6.5mm;
     position: relative;
     color: #37524a;
@@ -231,7 +273,7 @@
 
   /* ---- 印刷の手引き ---- */
   .print-tip {
-    margin-top: 5mm;
+    margin-top: 4mm;
     background: var(--sand);
     border: .6pt dashed var(--secondary);
     border-radius: 1.2mm;
@@ -244,7 +286,7 @@
 
   /* ---- フッター ---- */
   footer {
-    margin-top: 5mm;
+    margin-top: 3mm;
     border-top: .8pt solid var(--line);
     padding-top: 2.5mm;
     display: flex;
@@ -260,7 +302,10 @@
     margin: 12mm;
   }
   @media print {
-    body { background: #fff; font-size: 10pt; }
+    /* 本日休業のセクションを足して1枚がぎりぎりになったため少し下げる。
+       Webフォントが取れず日本語のシステムフォントに落ちた場合でも
+       1枚に収まるだけの余裕を持たせる */
+    body { background: #fff; font-size: 9.5pt; }
     .sheet {
       width: auto;
       min-height: 0;
@@ -327,23 +372,55 @@
   </section>
 
   <section>
-    <h2><span class="no">4</span>よくあるトラブルと対処法</h2>
+    <h2><span class="no">4</span>本日休業フラグの正しい使い方</h2>
+    <div class="body">
+      <p class="lead">
+        画面右上のボタンで切り替えます（<span class="tag on">本日対応中</span>＝通常営業／<span class="tag off">本日休業</span>＝営業時間内でも時間外と表示）。
+        <strong>会社全体が急遽休業になる場合のみ</strong>使ってください。
+      </p>
+      <div class="cols">
+        <div class="col ok">
+          <h3>○ 使う場面</h3>
+          <ul>
+            <li>台風・災害などで全員出社できなくなった</li>
+            <li>社内イベントで対応できない日</li>
+            <li>システムメンテナンスで対応を停止する日</li>
+          </ul>
+        </div>
+        <div class="col ng">
+          <h3>× 使わない場面（よくある誤操作）</h3>
+          <ul>
+            <li>個人の退席・早退 &rarr; <strong>ログアウトするだけ</strong>でOK</li>
+            <li>定休日・祝日 &rarr;「定休曜日」「休日登録」で事前に登録</li>
+          </ul>
+          <p class="note">押すと全お客様へ休業と表示されます。</p>
+        </div>
+      </div>
+      <p class="warn">
+        <strong>翌日になっても自動では戻りません。</strong>翌営業日の朝、画面右上のボタンで
+        「本日対応中」に戻してください。戻し忘れると営業時間内でも時間外メッセージが出続けます。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="no">5</span>よくあるトラブルと対処法</h2>
     <div class="body qa">
       <div class="item">
         <p class="q">チャットの一覧が表示されない</p>
-        <p class="a">ページを再読み込み（F5）してください。改善しない場合はログアウトして再ログインしてください。</p>
+        <p class="a">ページを再読み込み（F5）。改善しない場合はログアウトして再ログインしてください。</p>
       </div>
       <div class="item">
         <p class="q">返信が送れない</p>
-        <p class="a">画面上部に「通信に失敗しました」と表示される場合は、ネットワーク接続を確認して再度お試しください。</p>
+        <p class="a">「通信に失敗しました」と出る場合は、ネットワーク接続を確認して再度お試しください。</p>
       </div>
       <div class="item">
         <p class="q">新着の問い合わせが自動で表示されない</p>
-        <p class="a">ページを再読み込みしてください。通常は自動で更新されますが、長時間操作しない場合に止まることがあります。</p>
+        <p class="a">ページを再読み込みしてください。長時間操作しないと自動更新が止まることがあります。</p>
       </div>
       <div class="item">
         <p class="q">ログインできない</p>
-        <p class="a">パスワードを確認してください。それでも入れない場合はシステム管理者にお問い合わせください。</p>
+        <p class="a">パスワードを確認し、それでも入れない場合はシステム管理者にお問い合わせください。</p>
       </div>
     </div>
   </section>
