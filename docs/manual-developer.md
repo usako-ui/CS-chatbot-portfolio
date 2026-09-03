@@ -13,7 +13,7 @@ Next.js 15（App Router）+ Supabase + Gemini API + Vercel で構成していま
 
 ---
 
-## ローカル起動手順（5ステップ）
+## ローカル起動手順（6ステップ）
 
 まず手元で動かします。本番へのデプロイは[次の章](#本番セットアップ手順vercel)です。
 
@@ -42,13 +42,32 @@ Supabase でプロジェクトを作成し、SQL Editor で次を順に実行し
 1. `requirements.md`「DBスキーマ」章の DDL（テーブル4つ・RLSポリシー7つ）
 2. `supabase/seed.sql`（FAQ初期データ18件）
 
-あわせてダッシュボードで2つ設定します。
+あわせてダッシュボードで **Authentication → Providers → Anonymous を有効化**します
+（未設定だと顧客側が422で動きません）。
 
-- **Authentication → Providers → Anonymous を有効化**（未設定だと顧客側が422で動きません）
-- **Authentication → Users → Add user** でオペレーターを作成
-  「Auto Confirm User」にチェック。User Metadata に `{"display_name": "山田 太郎", "role_label": "フルタイム"}` を設定
+### 4. オペレーターアカウントを作成する
 
-### 4. Realtime を有効化
+Supabase ダッシュボードで管理画面にログインできるアカウントを作成します。
+
+1. Supabase ダッシュボード →「Authentication」→「Users」を開く
+2. 「Add user」→「Create new user」をクリック
+3. メールアドレスとパスワードを入力する
+4. 「Auto Confirm User」をONにする（メール認証を省略）
+5. 「Create User」をクリック
+
+オペレーターを複数名追加する場合は同じ手順を繰り返してください。
+
+作成後、そのユーザーの **User Metadata** に次を設定すると、管理画面に担当者名が表示されます。未設定の場合はメールアドレスがそのまま表示されます。
+
+```json
+{ "display_name": "山田 太郎", "role_label": "フルタイム" }
+```
+
+> ⚠️ 作成したメールアドレスとパスワードは
+> クライアントや担当者に安全な方法で伝えてください。
+> コードやGitリポジトリには絶対に含めないでください。
+
+### 5. Realtime を有効化
 
 ```sql
 ALTER PUBLICATION supabase_realtime ADD TABLE messages;
@@ -57,7 +76,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE conversations;
 
 > ⚠️ **忘れると無言で壊れます。** 購読は成功するのに何も届かず、エラーも警告も出ないまま「返信しても顧客画面に出ない」症状だけが残ります。
 
-### 5. 開発サーバー起動
+### 6. 開発サーバー起動
 
 ```bash
 npm run dev
@@ -158,9 +177,9 @@ Settings → Environment Variables に[環境変数一覧](#必要な環境変�
 | 症状 | 原因 |
 |---|---|
 | チャットが開かない・422エラー | 手順3の匿名サインインが未設定 |
-| 返信しても顧客画面に出ない | 手順4のRealtimeが未設定 |
+| 返信しても顧客画面に出ない | 手順5のRealtimeが未設定 |
 | AIが「担当者に接続しています。」しか返さない | `GEMINI_API_KEY` が未設定、または無料枠切れ |
-| ログインできない | 手順3の「Auto Confirm User」が未チェック |
+| ログインできない | 手順4の「Auto Confirm User」が未チェック |
 | スタイルが当たらない | `tailwind.config.ts` 変更後に dev を再起動していない |
 
 ---
