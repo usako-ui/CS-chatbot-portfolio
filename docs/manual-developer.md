@@ -47,21 +47,47 @@ Supabase でプロジェクトを作成し、SQL Editor で次を順に実行し
 
 ### 4. オペレーターアカウントを作成する
 
-Supabase ダッシュボードで管理画面にログインできるアカウントを作成します。
+管理画面にログインできるアカウントを作成します。
 
-1. Supabase ダッシュボード →「Authentication」→「Users」を開く
-2. 「Add user」→「Create new user」をクリック
-3. メールアドレスとパスワードを入力する
-4. 「Auto Confirm User」をONにする（メール認証を省略）
-5. 「Create User」をクリック
+**ステップ1：ユーザーを作成する**
 
-オペレーターを複数名追加する場合は同じ手順を繰り返してください。
+Supabase ダッシュボード →「Authentication」→「Users」→「Add user」
+→「Create new user」をクリックして以下を入力する
 
-作成後、そのユーザーの **User Metadata** に次を設定すると、管理画面に担当者名が表示されます。未設定の場合はメールアドレスがそのまま表示されます。
+- Email address：任意のメールアドレス
+- User Password：任意のパスワード
+- Auto confirm user：ONにする（メール認証を省略）
 
-```json
-{ "display_name": "山田 太郎", "role_label": "フルタイム" }
+「Create user」をクリック
+
+**ステップ2：表示名を設定する（SQL Editorで実施）**
+
+ダッシュボードのUser Metadata編集画面では表示名を設定できません。
+SQL Editorから以下のSQLを実行してください。
+
+Supabase ダッシュボード →「SQL Editor」→ 以下を貼り付けて「Run」
+
+```sql
+UPDATE auth.users
+SET raw_user_meta_data = jsonb_build_object(
+  'display_name', '担当者の名前',
+  'role_label',   'フルタイム',
+  'email_verified', true
+)
+WHERE email = '登録したメールアドレス';
 ```
+
+role_label の値：
+
+- フルタイム勤務の場合 → `'フルタイム'`
+- パートタイム勤務の場合 → `'パートタイム'`
+
+実行後に「Success. No rows returned」と表示されれば成功です。
+Authentication → Users でDisplay nameが反映されているか確認してください。
+
+**複数名追加する場合**
+
+ステップ1・ステップ2を人数分繰り返してください。
 
 > ⚠️ 作成したメールアドレスとパスワードは
 > クライアントや担当者に安全な方法で伝えてください。
